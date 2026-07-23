@@ -9,6 +9,13 @@ require "ask-state-providers"
 require "ask/coder/version"
 
 module Askoda
+  # Shared adapter instance (set from config.ru, accessed by routes)
+  @_adapter = nil
+
+  class << self
+    attr_accessor :_adapter
+  end
+
   # HTTP API + static file server for the Askoda coding assistant.
   #
   # Endpoints:
@@ -43,6 +50,15 @@ module Askoda
     DB_PATH = ENV.fetch("ASKODA_DB_PATH", File.join(Dir.pwd, "data", "askoda.db"))
     CONVERSATIONS_KEY = "__conversations__"
 
+    def self.build_provider_adapter
+      provider = ENV.fetch("CODING_PROVIDER", "zcode")
+      Ask::CodingProviders.build_adapter(
+        provider,
+        workspace_path: Dir.pwd,
+        turn_timeout: (ENV["TURN_TIMEOUT"] || "300").to_i
+      )
+    end
+
     route do |r|
       # CORS preflight
       if r.request_method == "OPTIONS"
@@ -53,6 +69,33 @@ module Askoda
 
       # ── API routes ──
       r.on "api" do
+        # GET /api/projects — list projects from adapter
+        r.get "projects" do
+          (Askoda._adapter.list_projects || []).to_json
+        end
+
+        # GET /api/projects/:encoded_path/sessions — list sessions for a project dir
+        r.on "projects", String do |encoded|
+          r.get "sessions" do
+            dir = URI.decode_www_form_component(encoded)
+            sessions = Askoda._adapter.find_sessions(directory: dir) || []
+            sessions.map! do |s|
+              { id: s[:session_id], title: s[:title], updated_at: s[:updated], message_count: 0 }
+            end
+            sessions.to_json
+          end
+        end
+
+        # GET /api/sessions/:id — get session messages from adapter
+        r.on "sessions", String do |id|
+          r.get do
+            history = Askoda._adapter.session_history(id) || []
+            messages = history.map { |m| { role: m[:role] == "You" ? "user" : "assistant", content: m[:text], created_at: Time.now.iso8601 } }
+            { id: id, messages: messages }.to_json
+          end
+        end
+
+        # POST /api/chat — streaming chat
         # POST /api/chat — streaming chat
         r.post "chat" do
           body = JSON.parse(r.body.read)
@@ -87,8 +130,7 @@ module Askoda
             out << "event: conversation.created\ndata: #{conversation[:id]}\n\n" unless body["conversation_id"]
 
             begin
-              adapter = build_adapter
-              adapter.start
+              adapter = Askoda._adapter
               sid = adapter.create_session("/tmp")
 
               out << "event: turn.started\ndata: {}\n\n"
@@ -115,7 +157,6 @@ module Askoda
             rescue => e
               out << "event: error\ndata: #{JSON.generate(error: e.message)}\n\n"
             ensure
-              adapter&.stop
               db&.close
             end
           end
@@ -218,15 +259,6 @@ module Askoda
       first_msg = messages.find { |m| m[:role] == "user" || m["role"] == "user" }
       text = (first_msg&.dig(:content) || first_msg&.dig("content") || "").to_s
       text.length > 40 ? text[0..40] + "…" : text
-    end
-
-    def build_adapter
-      provider = ENV.fetch("CODING_PROVIDER", "zcode")
-      Ask::CodingProviders.build_adapter(
-        provider,
-        workspace_path: Dir.pwd,
-        turn_timeout: (ENV["TURN_TIMEOUT"] || "300").to_i
-      )
     end
   end
 end
