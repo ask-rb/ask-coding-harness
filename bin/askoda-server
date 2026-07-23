@@ -11,7 +11,7 @@ host = ENV["HOST"] || "0.0.0.0"
 
 puts "🚀 Askoda server starting..."
 puts "   Port: #{host}:#{port}"
-puts "   Provider: #{ENV.fetch("CODING_PROVIDER", "zcode")}"
+puts "   Provider: #{ENV.fetch("CODING_PROVIDER", "acp")}"
 puts "   DB: #{Askoda::Server::DB_PATH}"
 puts "   Open: http://localhost:#{port}"
 

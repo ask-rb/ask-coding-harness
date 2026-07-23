@@ -51,7 +51,7 @@ module Askoda
     CONVERSATIONS_KEY = "__conversations__"
 
     def self.build_provider_adapter
-      provider = ENV.fetch("CODING_PROVIDER", "zcode")
+      provider = ENV.fetch("CODING_PROVIDER", "acp")
       Ask::CodingProviders.build_adapter(
         provider,
         workspace_path: Dir.pwd,
