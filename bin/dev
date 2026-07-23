@@ -3,21 +3,12 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# Create .env from example if missing
-if [ ! -f .env ]; then
-  if [ -f .env.example ]; then
-    cp .env.example .env
-    echo "✅ Created .env from .env.example — edit it with your API key"
-  fi
-fi
-
 # Bundle if needed
 if [ ! -f Gemfile.lock ] || [ "$(find Gemfile -newer Gemfile.lock 2>/dev/null)" ]; then
   echo "📦 Installing dependencies..."
   bundle install --quiet
 fi
 
-# Create data directory
 mkdir -p data
 
 echo "🚀 Askoda server starting..."
