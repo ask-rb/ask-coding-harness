@@ -3,16 +3,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# Bundle if needed
-if [ ! -f Gemfile.lock ] || [ "$(find Gemfile -newer Gemfile.lock 2>/dev/null)" ]; then
-  echo "📦 Installing dependencies..."
-  bundle install --quiet
-fi
-
 mkdir -p data
 
-echo "🚀 Askoda server starting..."
-echo "   Open: http://localhost:${PORT:-8080}"
-echo ""
-
+echo "🚀 Askoda server — http://localhost:${PORT:-8080}"
 bundle exec rackup config.ru -p ${PORT:-8080} -o ${HOST:-0.0.0.0}

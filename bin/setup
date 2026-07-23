@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+echo "==> Askoda server setup"
+echo ""
+
+cp -n .env.example .env 2>/dev/null && echo "✅ Created .env — edit it with your API key" || echo "⏭️  .env already exists"
+
+echo "📦 Installing dependencies..."
+bundle install
+
+echo ""
+echo "✅ Setup complete! Run ./bin/dev to start."
