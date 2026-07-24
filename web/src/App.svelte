@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { theme, sidebarOpen, isMobile, projects, currentSessionId, currentMessages, streaming, streamingText, isLoading, toggleTheme, toolCalls, type ToolCall, globalError, connectionError, clearErrors } from "./lib/stores";
-  import { fetchProjects, fetchSessions, fetchSessionMessages, sendChatMessage, forkSession, type Project, type Message } from "./lib/api";
+  import { fetchProjects, fetchSessions, fetchSessionMessages, sendChatMessage, forkSession, fetchConversations, fetchConversation, type Project, type Message, type Conversation } from "./lib/api";
   import ErrorBoundary from "./components/ErrorBoundary.svelte";
   import Settings from "./components/Settings.svelte";
   import Chat from "./components/Chat.svelte";
@@ -10,6 +10,8 @@
   let expandedDirs: Set<string> = new Set();
   let sessionCache: Record<string, any[]> = {};
   let projectsList: Project[] = [];
+  let conversationsList: Conversation[] = [];
+  let currentConversationId: string | null = null;
   let abortController: AbortController | null = null;
   let connected = false;
   let showCmdPalette = false;
@@ -24,6 +26,7 @@
   onMount(() => {
     loadTheme();
     loadProjects();
+    loadConversations().then(() => restoreConversation());
     checkMobile();
     checkConnection();
     handleRoute();
@@ -116,6 +119,18 @@
     finally { isLoading.set(false); }
   }
 
+  async function loadConversations() {
+    try { conversationsList = await fetchConversations(); }
+    catch { conversationsList = []; }
+  }
+
+  async function restoreConversation() {
+    const savedId = localStorage.getItem("active_conversation_id");
+    if (savedId && conversationsList.some((c) => c.id === savedId)) {
+      await selectConversation(savedId);
+    }
+  }
+
   async function toggleProject(dir: string) {
     if (expandedDirs.has(dir)) { expandedDirs.delete(dir); expandedDirs = expandedDirs; return; }
     expandedDirs.add(dir);
@@ -137,9 +152,20 @@
   function newChat() {
     history.pushState(null, "", "/");
     currentSessionId.set(null);
+    currentConversationId = null;
     currentMessages.set([]);
     streamingText.set("");
     sidebarOpen.set(false);
+  }
+
+  async function selectConversation(id: string) {
+    currentConversationId = id;
+    localStorage.setItem("active_conversation_id", id);
+    sidebarOpen.set(false);
+    try {
+      const conv = await fetchConversation(id);
+      currentMessages.set(conv.messages || []);
+    } catch { currentMessages.set([]); }
   }
 
   async function forkCurrentSession() {
@@ -161,19 +187,21 @@
     streamingText.set("");
     toolCalls.set([]);
 
-    let cid = $currentSessionId || undefined;
+    let cid = currentConversationId || undefined;
     abortController = sendChatMessage(
       text, cid,
       (event) => {
         if (event.type === "meta" && typeof event.data === "string" && event.data.length > 10) {
-          currentSessionId.set(event.data);
-          navigateToSession(event.data);
+          currentConversationId = event.data;
+          localStorage.setItem("active_conversation_id", event.data);
+          loadConversations();
         }
         if (event.type === "data" && event.data.response) {
           streamingText.set("");
           toolCalls.set([]);
           currentMessages.update((msgs) => [...msgs, { role: "assistant", content: event.data.response }]);
           loadProjects();
+          loadConversations();
         }
         if (event.type === "data" && event.data.delta) {
           streamingText.update((t) => t + event.data.delta);
@@ -249,6 +277,17 @@
               </div>
             {/if}
           </div>
+        {/each}
+      {/if}
+
+      {#if conversationsList.length > 0}
+        <div class="sidebar-section-label">Conversations</div>
+        {#each conversationsList as conv (conv.id)}
+          <button class="conv-item" class:active={conv.id === currentConversationId}
+            onclick={() => selectConversation(conv.id)}>
+            <span class="conv-title">{conv.title}</span>
+            <span class="conv-count">{conv.message_count}</span>
+          </button>
         {/each}
       {/if}
     </div>
@@ -348,6 +387,19 @@
   .sess-item.active { background: var(--surface2); border-color: var(--border); }
   .sess-item .title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sess-item .meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .sidebar-section-label {
+    padding: 12px 10px 4px; font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .6px; color: var(--muted);
+  }
+  .conv-item {
+    width: 100%; padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 13px;
+    border: 1px solid transparent; margin-bottom: 1px; background: none; color: var(--text); text-align: left; display: flex; align-items: center; gap: 8px;
+  }
+  .conv-item:hover { background: var(--surface2); }
+  .conv-item.active { background: var(--surface2); border-color: var(--border); }
+  .conv-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .conv-count { font-size: 11px; color: var(--muted); flex-shrink: 0; }
 
   .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
   .session-bar { display: flex; align-items: center; padding: 6px 16px; border-bottom: 1px solid var(--border); background: var(--surface); gap: 8px; }

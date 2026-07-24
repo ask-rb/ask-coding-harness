@@ -145,4 +145,75 @@ class ApiTest < Minitest::Test
     get "/api/sessions/nonexistent"
     assert_equal 200, last_response.status
   end
+
+  # ── Conversation tests ──
+
+  def test_conversation_create_and_fetch
+    # Create a conversation by sending a chat
+    post "/api/chat", { message: "persist this" }.to_json, { "CONTENT_TYPE" => "application/json" }
+    assert_equal 200, last_response.status
+
+    # List conversations
+    get "/api/conversations"
+    assert_equal 200, last_response.status
+    list = JSON.parse(last_response.body)
+    assert_kind_of Array, list
+    refute_empty list, "Should have at least one conversation"
+    cid = list.last["id"]
+    assert cid, "Conversation should have an ID"
+
+    # Fetch the full conversation
+    get "/api/conversations/#{cid}"
+    assert_equal 200, last_response.status
+    conv = JSON.parse(last_response.body)
+    assert_equal cid, conv["id"]
+    assert_operator conv["messages"].length, :>=, 1
+    assert_equal "user", conv["messages"].first["role"]
+    assert_equal "persist this", conv["messages"].first["content"]
+  end
+
+  def test_conversation_deletion
+    post "/api/chat", { message: "delete me" }.to_json, { "CONTENT_TYPE" => "application/json" }
+    get "/api/conversations"
+    cid = JSON.parse(last_response.body).last["id"]
+
+    delete "/api/conversations/#{cid}"
+    assert_equal 200, last_response.status
+    assert_equal true, JSON.parse(last_response.body)["deleted"]
+
+    get "/api/conversations/#{cid}"
+    assert_equal 404, last_response.status
+  end
+
+  def test_conversation_not_found
+    get "/api/conversations/nonexistent-id"
+    assert_equal 404, last_response.status
+    assert_includes JSON.parse(last_response.body)["error"], "not found"
+  end
+
+  def test_chat_with_conversation_id
+    # Create a conversation first
+    post "/api/chat", { message: "first msg" }.to_json, { "CONTENT_TYPE" => "application/json" }
+
+    # Read the conversation.id from SSE (the raw data line)
+    cid = nil
+    last_response.body.each_line do |line|
+      if line.start_with?("data: ") && line.length > 20
+        cid = line[6..].strip
+        break
+      end
+    end
+    refute_nil cid, "Should have extracted a conversation ID"
+
+    # Send a second message with the conversation_id
+    post "/api/chat", { message: "second msg", conversation_id: cid }.to_json, { "CONTENT_TYPE" => "application/json" }
+    assert_equal 200, last_response.status
+
+    # Verify both messages are in the conversation
+    get "/api/conversations/#{cid}"
+    conv = JSON.parse(last_response.body)
+    assert_equal 4, conv["messages"].length, "Should have 4 messages (2 user + 2 assistant)"
+    assert_equal "first msg", conv["messages"][0]["content"]
+    assert_equal "second msg", conv["messages"][2]["content"]
+  end
 end

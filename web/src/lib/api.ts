@@ -46,6 +46,12 @@ export async function fetchSessionMessages(id: string): Promise<Conversation> {
   return await res.json();
 }
 
+export async function fetchConversation(id: string): Promise<Conversation> {
+  const res = await fetch(`${BASE}/api/conversations/${id}`);
+  if (!res.ok) throw new Error(`Failed to fetch conversation: ${res.status}`);
+  return await res.json();
+}
+
 export async function fetchConversations(): Promise<Conversation[]> {
   const res = await fetch(`${BASE}/api/conversations`);
   if (!res.ok) throw new Error(`Failed to fetch conversations: ${res.status}`);

@@ -108,7 +108,7 @@ module Askoda
 
           # GET /api/sessions/:id — session messages (catch-all for /sessions/:id)
           r.get do
-            history = self.class.build_provider_adapter.session_history(id) || []
+            history = Askoda._adapter.session_history(id) || []
             messages = history.map { |m| { role: m[:role] == "You" ? "user" : "assistant", content: m[:text], created_at: Time.now.iso8601 } }
             { id: id, messages: messages }.to_json
           end
@@ -227,7 +227,7 @@ module Askoda
           end
 
           # DELETE /api/conversations/:id
-          r.delete do
+          r.on method: :delete do
             db = open_db
             db.delete("conv:#{id}")
             db.list_remove(CONVERSATIONS_KEY, id)
@@ -293,7 +293,16 @@ module Askoda
     end
 
     def load_conversation(db, id)
-      db.get("conv:#{id}")
+      data = db.get("conv:#{id}")
+      data ? symbolize_keys(data) : nil
+    end
+
+    def symbolize_keys(obj)
+      case obj
+      when Hash then obj.each_with_object({}) { |(k, v), h| h[k.to_sym] = symbolize_keys(v) }
+      when Array then obj.map { |v| symbolize_keys(v) }
+      else obj
+      end
     end
 
     def load_conversation_summary(db, id)
