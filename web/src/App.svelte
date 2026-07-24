@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { theme, sidebarOpen, isMobile, projects, currentSessionId, currentMessages, streaming, streamingText, isLoading, toggleTheme, toolCalls, type ToolCall, globalError, connectionError, clearErrors } from "./lib/stores";
-  import { fetchProjects, fetchSessions, fetchSessionMessages, sendChatMessage, forkSession, fetchConversations, fetchConversation, editMessage, deleteMessagesFrom, type Project, type Message, type Conversation } from "./lib/api";
+  import { fetchProjects, fetchSessions, fetchSessionMessages, sendChatMessage, forkSession, fetchConversations, fetchConversation, editMessage, deleteMessagesFrom, fetchFileList, fetchFileContent, type Project, type Message, type Conversation } from "./lib/api";
   import ErrorBoundary from "./components/ErrorBoundary.svelte";
   import Settings from "./components/Settings.svelte";
   import Chat from "./components/Chat.svelte";
@@ -12,6 +12,8 @@
   let projectsList: Project[] = [];
   let conversationsList: Conversation[] = [];
   let currentConversationId: string | null = null;
+  let attachedFiles: string[] = [];
+  let fileList: string[] = [];
   let abortController: AbortController | null = null;
   let connected = false;
   let showCmdPalette = false;
@@ -27,6 +29,7 @@
     loadTheme();
     loadProjects();
     loadConversations().then(() => restoreConversation());
+    loadFileList();
     checkMobile();
     checkConnection();
     handleRoute();
@@ -124,6 +127,23 @@
     catch { conversationsList = []; }
   }
 
+  async function loadFileList() {
+    try { fileList = await fetchFileList(); }
+    catch { fileList = []; }
+  }
+
+  function toggleFileAttachment(file: string) {
+    if (attachedFiles.includes(file)) {
+      attachedFiles = attachedFiles.filter((f) => f !== file);
+    } else {
+      attachedFiles = [...attachedFiles, file];
+    }
+  }
+
+  function clearAttachments() {
+    attachedFiles = [];
+  }
+
   async function restoreConversation() {
     const savedId = localStorage.getItem("active_conversation_id");
     if (savedId && conversationsList.some((c) => c.id === savedId)) {
@@ -181,7 +201,24 @@
 
   async function handleSend(text: string) {
     if ($streaming || !text.trim()) return;
-    const userMsg: Message = { role: "user", content: text };
+
+    // Prepend attached file contents
+    let finalText = text.trim();
+    if (attachedFiles.length > 0) {
+      const parts: string[] = [];
+      for (const f of attachedFiles) {
+        try {
+          const { content } = await fetchFileContent(f);
+          parts.push(`📄 ${f}\n\`\`\`\n${content}\n\`\`\``);
+        } catch { /* skip files that fail to load */ }
+      }
+      if (parts.length > 0) {
+        finalText = parts.join("\n\n") + "\n\n" + finalText;
+      }
+      clearAttachments();
+    }
+
+    const userMsg: Message = { role: "user", content: finalText };
     currentMessages.update((msgs) => [...msgs, userMsg]);
     streaming.set(true);
     streamingText.set("");
@@ -349,7 +386,7 @@
       {#if $currentMessages.length === 0 && !$streamingText}
         <Welcome {newChat} onSend={handleSend} />
       {:else}
-        <Chat messages={$currentMessages} streamingText={$streamingText} isStreaming={$streaming} toolCalls={$toolCalls} onSend={handleSend} onCancel={cancelStream} {onEdit} {onDelete} {onRetry} />
+        <Chat messages={$currentMessages} streamingText={$streamingText} isStreaming={$streaming} toolCalls={$toolCalls} onSend={handleSend} onCancel={cancelStream} {onEdit} {onDelete} {onRetry} {attachedFiles} {fileList} onToggleFile={toggleFileAttachment} onClearFiles={clearAttachments} />
       {/if}
       {#if refresing}
         <div class="pull-indicator">↻ Refreshing...</div>

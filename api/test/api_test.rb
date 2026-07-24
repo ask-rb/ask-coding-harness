@@ -282,4 +282,41 @@ class ApiTest < Minitest::Test
     patch "/api/conversations/#{cid}/messages/99", { content: "nope" }.to_json, { "CONTENT_TYPE" => "application/json" }
     assert_equal 404, last_response.status
   end
+
+  # ── File endpoints tests ──
+
+  def test_file_list
+    get "/api/files"
+    assert_equal 200, last_response.status
+    data = JSON.parse(last_response.body)
+    assert_kind_of Array, data["files"]
+    assert_operator data["files"].length, :>=, 1
+    assert data["files"].any? { |f| f.include?("server.rb") }, "Should list server.rb"
+  end
+
+  def test_file_read
+    get "/api/files/read?path=test/test_helper.rb"
+    assert_equal 200, last_response.status
+    data = JSON.parse(last_response.body)
+    assert_equal "test/test_helper.rb", data["path"]
+    assert data["content"].length > 50, "Content should be non-trivial"
+    assert_includes data["content"], "frozen_string_literal"
+  end
+
+  def test_file_read_not_found
+    get "/api/files/read?path=nonexistent_file.rb"
+    assert_equal 404, last_response.status
+    assert_includes JSON.parse(last_response.body)["error"], "not found"
+  end
+
+  def test_file_read_directory
+    get "/api/files/read?path=."
+    assert_equal 400, last_response.status
+    assert_includes JSON.parse(last_response.body)["error"], "directory"
+  end
+
+  def test_file_read_invalid_path
+    get "/api/files/read?path=../../etc/passwd"
+    assert_equal 400, last_response.status
+  end
 end

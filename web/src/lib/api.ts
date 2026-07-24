@@ -26,6 +26,28 @@ export interface Conversation {
   updated_at?: string;
 }
 
+export interface FileListResponse {
+  files: string[];
+}
+
+export interface FileContentResponse {
+  path: string;
+  content: string;
+}
+
+export async function fetchFileList(): Promise<string[]> {
+  const res = await fetch(`${BASE}/api/files`);
+  if (!res.ok) throw new Error(`Failed to fetch file list: ${res.status}`);
+  const data: FileListResponse = await res.json();
+  return data.files || [];
+}
+
+export async function fetchFileContent(path: string): Promise<FileContentResponse> {
+  const res = await fetch(`${BASE}/api/files/read?path=${encodeURIComponent(path)}`);
+  if (!res.ok) throw new Error(`Failed to fetch file content: ${res.status}`);
+  return await res.json();
+}
+
 export async function fetchProjects(): Promise<Project[]> {
   const res = await fetch(`${BASE}/api/projects`);
   if (!res.ok) throw new Error(`Failed to fetch projects: ${res.status}`);

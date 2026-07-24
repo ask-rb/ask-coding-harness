@@ -2,6 +2,7 @@
 
 require "roda"
 require "json"
+require "find"
 require "securerandom"
 require "fileutils"
 require "ask/coding_providers"
@@ -75,7 +76,48 @@ module Askoda
       end
 
       # ── API routes ──
-	      r.on "api" do
+      r.on "api" do
+        # GET /api/files — list all project files recursively
+        r.get "files" do
+          root = Dir.pwd
+          ignore = %w[.git node_modules vendor/bundle tmp log .DS_Store coverage]
+          binary_ext = %w[.png .jpg .jpeg .gif .ico .svg .woff .woff2 .eot .ttf .otf .mp4 .mp3 .zip .gz .tar .exe .dll .so .o .pyc]
+          result = []
+          Find.find(root) do |path|
+            rel = path.sub("#{root}/", "")
+            next if rel.empty?
+            # Check if any component of the relative path should be ignored
+            parts = rel.split("/")
+            next if parts.any? { |p| ignore.include?(p) || p.start_with?(".") }
+            next unless File.file?(path)
+            ext = File.extname(path).downcase
+            next if binary_ext.include?(ext)
+            # Skip files > 1MB
+            next if File.size(path) > 1_048_576
+            result << rel
+          end
+          { files: result.sort }.to_json
+        end
+
+        # GET /api/files/read?path=... — read a file
+        r.get "files", "read" do
+          file_path = r.params["path"].to_s.strip
+          if file_path.empty? || file_path.include?("..")
+            response.status = 400
+            next { error: "Invalid path" }.to_json
+          end
+          full = File.join(Dir.pwd, file_path)
+          unless File.exist?(full)
+            response.status = 404
+            next { error: "File not found" }.to_json
+          end
+          if File.directory?(full)
+            response.status = 400
+            next { error: "Path is a directory" }.to_json
+          end
+          content = File.read(full, encoding: "UTF-8")
+          { path: file_path, content: content }.to_json
+        end
 	        # GET /api/projects — list projects from adapter
         r.get "projects" do
           (Askoda._adapter.list_projects || []).to_json
