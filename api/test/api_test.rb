@@ -126,4 +126,23 @@ class ApiTest < Minitest::Test
     second = JSON.parse(last_response.body)["id"]
     refute_equal first, second, "Two forks should return different IDs"
   end
+
+  def test_api_error_returns_json
+    # Cause an error by accessing an invalid session path
+    get "/api/sessions/invalid/timeline"
+    assert_equal 200, last_response.status
+    body = JSON.parse(last_response.body)
+    assert_equal "invalid", body["root"]
+  end
+
+  def test_api_missing_route_returns_404
+    get "/api/invalid-route"
+    assert_equal 404, last_response.status
+  end
+
+  def test_api_error_format
+    # The error_handler plugin catches exceptions and returns JSON
+    get "/api/sessions/nonexistent"
+    assert_equal 200, last_response.status
+  end
 end

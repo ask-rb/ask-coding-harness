@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import { theme, sidebarOpen, isMobile, projects, currentSessionId, currentMessages, streaming, streamingText, isLoading, toggleTheme, toolCalls, type ToolCall } from "./lib/stores";
+  import { theme, sidebarOpen, isMobile, projects, currentSessionId, currentMessages, streaming, streamingText, isLoading, toggleTheme, toolCalls, type ToolCall, globalError, connectionError, clearErrors } from "./lib/stores";
   import { fetchProjects, fetchSessions, fetchSessionMessages, sendChatMessage, forkSession, type Project, type Message } from "./lib/api";
+  import ErrorBoundary from "./components/ErrorBoundary.svelte";
   import Chat from "./components/Chat.svelte";
   import Welcome from "./components/Welcome.svelte";
 
@@ -85,7 +86,12 @@
     try {
       const res = await fetch("/api/projects");
       connected = res.ok;
-    } catch { connected = false; }
+      if (!connected) connectionError.set("Cannot connect to server. Check that Askoda is running.");
+      else connectionError.set(null);
+    } catch {
+      connected = false;
+      connectionError.set("Connection lost. Is the server still running?");
+    }
     setTimeout(checkConnection, 30000);
   }
 
@@ -246,18 +252,24 @@
   </aside>
 
   <main class="main" ontouchstart={handleTouchStart} ontouchend={handleTouchEnd}>
-    {#if $currentSessionId}
-      <div class="session-bar">
-        <button class="fork-btn" onclick={forkCurrentSession} title="Fork this session">⑂ Fork</button>
-      </div>
-    {/if}
-    {#if $currentMessages.length === 0 && !$streamingText}
-      <Welcome {newChat} onSend={handleSend} />
+    {#if $globalError}
+      <ErrorBoundary error={$globalError} onRetry={clearErrors} />
+    {:else if $connectionError}
+      <ErrorBoundary error={$connectionError} onRetry={() => { clearErrors(); loadProjects(); }} />
     {:else}
-      <Chat messages={$currentMessages} streamingText={$streamingText} isStreaming={$streaming} toolCalls={$toolCalls} onSend={handleSend} onCancel={cancelStream} />
-    {/if}
-    {#if refresing}
-      <div class="pull-indicator">↻ Refreshing...</div>
+      {#if $currentSessionId}
+        <div class="session-bar">
+          <button class="fork-btn" onclick={forkCurrentSession} title="Fork this session">⑂ Fork</button>
+        </div>
+      {/if}
+      {#if $currentMessages.length === 0 && !$streamingText}
+        <Welcome {newChat} onSend={handleSend} />
+      {:else}
+        <Chat messages={$currentMessages} streamingText={$streamingText} isStreaming={$streaming} toolCalls={$toolCalls} onSend={handleSend} onCancel={cancelStream} />
+      {/if}
+      {#if refresing}
+        <div class="pull-indicator">↻ Refreshing...</div>
+      {/if}
     {/if}
   </main>
 </div>

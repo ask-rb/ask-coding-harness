@@ -21,6 +21,13 @@ export interface ToolCall {
 }
 
 export const isLoading = writable(false);
+export const globalError = writable<string | null>(null);
+export const connectionError = writable<string | null>(null);
+
+export function clearErrors() {
+  globalError.set(null);
+  connectionError.set(null);
+}
 
 export const chatTitle = derived(currentSessionId, ($id) =>
   $id ? `Session ${$id.slice(0, 8)}` : "Askoda"

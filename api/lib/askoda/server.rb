@@ -33,6 +33,14 @@ module Askoda
       "Access-Control-Allow-Methods" => "GET, POST, DELETE, OPTIONS",
       "Access-Control-Allow-Headers" => "Content-Type"
     }
+    plugin :error_handler do |e|
+      if env["PATH_INFO"]&.start_with?("/api/")
+        response.status = 500
+        { error: e.message }.to_json
+      else
+        raise e
+      end
+    end
     plugin :public, root: File.expand_path("../../../public", File.dirname(__FILE__))
     plugin :streaming
 
@@ -67,8 +75,8 @@ module Askoda
       end
 
       # ── API routes ──
-      r.on "api" do
-        # GET /api/projects — list projects from adapter
+	      r.on "api" do
+	        # GET /api/projects — list projects from adapter
         r.get "projects" do
           (Askoda._adapter.list_projects || []).to_json
         end
