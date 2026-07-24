@@ -3,6 +3,7 @@
   import { theme, sidebarOpen, isMobile, projects, currentSessionId, currentMessages, streaming, streamingText, isLoading, toggleTheme, toolCalls, type ToolCall, globalError, connectionError, clearErrors } from "./lib/stores";
   import { fetchProjects, fetchSessions, fetchSessionMessages, sendChatMessage, forkSession, type Project, type Message } from "./lib/api";
   import ErrorBoundary from "./components/ErrorBoundary.svelte";
+  import Settings from "./components/Settings.svelte";
   import Chat from "./components/Chat.svelte";
   import Welcome from "./components/Welcome.svelte";
 
@@ -16,6 +17,7 @@
   let toolIdCounter = 0;
   let touchStartX = 0;
   let refresing = false;
+  let showSettings = false;
 
   $: projects.set(projectsList);
 
@@ -218,6 +220,7 @@
       </h1>
       <div class="sidebar-actions">
         <button onclick={newChat} title="New chat (⌘N)">✚</button>
+        <button onclick={() => showSettings = true} title="Settings">⚙</button>
         <button onclick={handleToggleTheme} title="Toggle theme">{$theme === "dark" ? "☀" : "☾"}</button>
       </div>
     </div>
@@ -272,6 +275,8 @@
       {/if}
     {/if}
   </main>
+
+<Settings open={showSettings} onClose={() => showSettings = false} {connected} />
 </div>
 
 <!-- Command Palette -->
