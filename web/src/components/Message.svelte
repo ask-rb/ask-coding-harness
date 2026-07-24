@@ -32,6 +32,34 @@
 
   $: isError = msg.role === "assistant" && msg.content.startsWith("Error:");
 
+  function copyButtons(node: HTMLElement) {
+    function addButtons() {
+      node.querySelectorAll("pre").forEach((pre) => {
+        if (pre.querySelector(".copy-btn")) return;
+        const code = (pre.querySelector("code")?.textContent || "").trim();
+        if (!code) return;
+        pre.style.position = "relative";
+        const btn = document.createElement("button");
+        btn.className = "copy-btn";
+        btn.textContent = "📋";
+        btn.setAttribute("aria-label", "Copy code");
+        btn.onclick = async (e) => {
+          e.stopPropagation();
+          try {
+            await navigator.clipboard.writeText(code);
+            btn.textContent = "✅";
+            setTimeout(() => { btn.textContent = "📋"; }, 2000);
+          } catch { /* clipboard not available */ }
+        };
+        pre.prepend(btn);
+      });
+    }
+    addButtons();
+    const observer = new MutationObserver(addButtons);
+    observer.observe(node, { childList: true, subtree: true });
+    return { destroy() { observer.disconnect(); } };
+  }
+
   function startEdit() {
     editContent = msg.content;
     editing = true;
@@ -86,10 +114,10 @@
         </div>
       </div>
     {:else}
-      {#if rendered}
-        <div class="markdown">
-          {@html rendered}
-        </div>
+        {#if rendered}
+          <div class="markdown" use:copyButtons>
+            {@html rendered}
+          </div>
       {:else}
         <div class="plain">{msg.content}</div>
       {/if}
@@ -127,6 +155,15 @@
   :global(.msg-bubble a) { color: var(--accent); text-decoration: none; }
   :global(.msg-bubble a:hover) { text-decoration: underline; }
   :global(.msg-bubble h1), :global(.msg-bubble h2), :global(.msg-bubble h3), :global(.msg-bubble h4) { margin: 12px 0 6px; line-height: 1.3; }
+
+  :global(.copy-btn) {
+    position: absolute; top: 6px; right: 6px; z-index: 5;
+    padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--muted); cursor: pointer;
+    font-size: 12px; line-height: 1.6; opacity: 0; transition: opacity .1s;
+  }
+  :global(pre:hover .copy-btn) { opacity: 1; }
+  :global(.copy-btn:hover) { background: var(--accent); color: #fff; border-color: var(--accent); opacity: 1; }
 
   .msg-actions {
     display: none; gap: 4px; margin-top: 6px; justify-content: flex-end;
