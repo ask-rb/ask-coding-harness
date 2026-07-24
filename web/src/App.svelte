@@ -13,6 +13,8 @@
   let showCmdPalette = false;
   let cmdFilter = "";
   let toolIdCounter = 0;
+  let touchStartX = 0;
+  let refresing = false;
 
   $: projects.set(projectsList);
 
@@ -36,6 +38,23 @@
   });
 
   function checkMobile() { isMobile.set(window.innerWidth < 768); }
+
+  function handleTouchStart(e: TouchEvent) {
+    touchStartX = e.touches[0].clientX;
+  }
+
+  function handleTouchEnd(e: TouchEvent) {
+    if (!isMobile) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (dx > 60) sidebarOpen.set(true);
+    if (dx < -60) sidebarOpen.set(false);
+  }
+
+  function handlePullStart() {
+    refresing = true;
+    loadProjects();
+    setTimeout(() => refresing = false, 1000);
+  }
 
   function loadTheme() {
     const dark = localStorage.getItem("theme") !== "light";
@@ -215,11 +234,14 @@
     </div>
   </aside>
 
-  <main class="main">
+  <main class="main" ontouchstart={handleTouchStart} ontouchend={handleTouchEnd}>
     {#if $currentMessages.length === 0 && !$streamingText}
       <Welcome {newChat} onSend={handleSend} />
     {:else}
       <Chat messages={$currentMessages} streamingText={$streamingText} isStreaming={$streaming} toolCalls={$toolCalls} onSend={handleSend} onCancel={cancelStream} />
+    {/if}
+    {#if refresing}
+      <div class="pull-indicator">↻ Refreshing...</div>
     {/if}
   </main>
 </div>
@@ -306,8 +328,10 @@
   .cmd-empty { padding: 16px; text-align: center; color: var(--muted); font-size: 13px; }
 
   @media (max-width: 768px) {
-    .sidebar { position: fixed; top: 0; left: 0; bottom: 0; transform: translateX(-100%); width: 85vw; max-width: 320px; transition: transform .2s; }
+    .sidebar { position: fixed; top: 0; left: 0; bottom: 0; transform: translateX(-100%); width: 85vw; max-width: 320px; transition: transform .25s cubic-bezier(.4,0,.2,1); }
     .sidebar.open { transform: translateX(0); }
     .cmd-overlay { padding-top: 40px; }
   }
+  .pull-indicator { position: fixed; top: 0; left: 0; right: 0; text-align: center; padding: 8px; font-size: 12px; color: var(--muted); background: var(--surface); border-bottom: 1px solid var(--border); z-index: 50; animation: fadeIn .2s; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 </style>
