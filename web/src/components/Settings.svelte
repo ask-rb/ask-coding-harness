@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { theme, toggleTheme } from "../lib/stores";
+  import { theme, toggleTheme, currentModel, availableModels } from "../lib/stores";
 
   export let open = false;
   export let onClose: () => void;
@@ -34,6 +34,19 @@
     </div>
 
     <div class="settings-body">
+      <section>
+        <h3>Model</h3>
+        <div class="setting-row">
+          <span>Coding model</span>
+          <select class="model-select" bind:value={$currentModel}>
+            {#each $availableModels as model}
+              <option value={model}>{model}</option>
+            {/each}
+          </select>
+        </div>
+        <div class="setting-hint">Model for coding agent responses. Takes effect on the next message.</div>
+      </section>
+
       <section>
         <h3>Appearance</h3>
         <div class="setting-row">
@@ -107,4 +120,9 @@
   .link { font-size: 13px; color: var(--accent); text-decoration: none; }
   .link:hover { text-decoration: underline; }
   .about-text { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+  .model-select {
+    padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); font-size: 13px; max-width: 200px;
+  }
+  .setting-hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
 </style>

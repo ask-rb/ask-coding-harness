@@ -98,6 +98,18 @@ export async function deleteMessagesFrom(conversationId: string, index: number):
   return await res.json();
 }
 
+export interface ConfigResponse {
+  models: string[];
+  defaultModel: string;
+  currentAdapter: string;
+}
+
+export async function fetchConfig(): Promise<ConfigResponse> {
+  const res = await fetch(`${BASE}/api/config`);
+  if (!res.ok) throw new Error(`Failed to fetch config: ${res.status}`);
+  return await res.json();
+}
+
 export async function forkSession(sessionId: string): Promise<{ id: string; parent_id: string }> {
   const res = await fetch(`${BASE}/api/sessions/${sessionId}/fork`, { method: "POST" });
   if (!res.ok) throw new Error(`Failed to fork session: ${res.status}`);
@@ -107,9 +119,10 @@ export async function forkSession(sessionId: string): Promise<{ id: string; pare
 export function sendChatMessage(
   message: string,
   conversationId?: string,
-  onEvent: (event: { type: string; data: any }) => void,
-  onError: (error: string) => void,
-  onDone: () => void
+  model?: string,
+  onEvent?: (event: { type: string; data: any }) => void,
+  onError?: (error: string) => void,
+  onDone?: () => void
 ): AbortController {
   const controller = new AbortController();
 
@@ -121,13 +134,14 @@ export function sendChatMessage(
         body: JSON.stringify({
           message,
           conversation_id: conversationId,
+          model: model || undefined,
         }),
         signal: controller.signal,
       });
 
       if (!res.ok) {
-        onError(`HTTP ${res.status}`);
-        onDone();
+        onError?.(`HTTP ${res.status}`);
+        onDone?.();
         return;
       }
 
@@ -147,20 +161,20 @@ export function sendChatMessage(
           if (line.startsWith("data: ")) {
             try {
               const data = JSON.parse(line.slice(6));
-              onEvent({ type: "data", data });
+              onEvent?.({ type: "data", data });
             } catch {
               // Not JSON, might be a raw string (conversation id)
-              onEvent({ type: "meta", data: line.slice(6) });
+              onEvent?.({ type: "meta", data: line.slice(6) });
             }
           }
         }
       }
-      onDone();
+      onDone?.();
     } catch (e: any) {
       if (e.name !== "AbortError") {
-        onError(e.message);
+        onError?.(e.message);
       }
-      onDone();
+      onDone?.();
     }
   })();
 

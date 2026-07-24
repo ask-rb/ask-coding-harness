@@ -118,6 +118,18 @@ module Askoda
           content = File.read(full, encoding: "UTF-8")
           { path: file_path, content: content }.to_json
         end
+
+        # GET /api/config — list available models
+        r.get "config" do
+          default = ENV["ASK_AGENT_MODEL"] || ENV.fetch("ASKODA_DEFAULT_MODEL", "deepseek-v4-flash")
+          models_env = ENV["ASKODA_MODELS"]
+          models = if models_env&.length&.positive?
+            models_env.split(",").map(&:strip)
+          else
+            %w[deepseek-v4-flash claude-sonnet-4-20250514 gpt-4o o3-mini claude-sonnet-4-20250514-thinking]
+          end
+          { models: models, defaultModel: default, currentAdapter: ENV.fetch("CODING_PROVIDER", "acp") }.to_json
+        end
 	        # GET /api/projects — list projects from adapter
         r.get "projects" do
           (Askoda._adapter.list_projects || []).to_json

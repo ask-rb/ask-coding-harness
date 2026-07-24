@@ -319,4 +319,16 @@ class ApiTest < Minitest::Test
     get "/api/files/read?path=../../etc/passwd"
     assert_equal 400, last_response.status
   end
+
+  # ── Config endpoint tests ──
+
+  def test_config_endpoint
+    get "/api/config"
+    assert_equal 200, last_response.status
+    data = JSON.parse(last_response.body)
+    assert_kind_of Array, data["models"]
+    assert_operator data["models"].length, :>=, 1
+    assert_kind_of String, data["defaultModel"]
+    assert_kind_of String, data["currentAdapter"]
+  end
 end

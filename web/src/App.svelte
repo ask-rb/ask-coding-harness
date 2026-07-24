@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import { theme, sidebarOpen, isMobile, projects, currentSessionId, currentMessages, streaming, streamingText, isLoading, toggleTheme, toolCalls, type ToolCall, globalError, connectionError, clearErrors } from "./lib/stores";
-  import { fetchProjects, fetchSessions, fetchSessionMessages, sendChatMessage, forkSession, fetchConversations, fetchConversation, editMessage, deleteMessagesFrom, fetchFileList, fetchFileContent, type Project, type Message, type Conversation } from "./lib/api";
+  import { theme, sidebarOpen, isMobile, projects, currentSessionId, currentMessages, streaming, streamingText, isLoading, toggleTheme, toolCalls, type ToolCall, globalError, connectionError, clearErrors, currentModel, availableModels } from "./lib/stores";
+  import { fetchProjects, fetchSessions, fetchSessionMessages, sendChatMessage, forkSession, fetchConversations, fetchConversation, editMessage, deleteMessagesFrom, fetchFileList, fetchFileContent, fetchConfig, type Project, type Message, type Conversation } from "./lib/api";
   import ErrorBoundary from "./components/ErrorBoundary.svelte";
   import Settings from "./components/Settings.svelte";
   import Chat from "./components/Chat.svelte";
@@ -30,6 +30,7 @@
     loadProjects();
     loadConversations().then(() => restoreConversation());
     loadFileList();
+    loadConfig();
     checkMobile();
     checkConnection();
     handleRoute();
@@ -132,6 +133,16 @@
     catch { fileList = []; }
   }
 
+  async function loadConfig() {
+    try {
+      const cfg = await fetchConfig();
+      availableModels.set(cfg.models);
+      if (cfg.defaultModel) {
+        currentModel.set(cfg.defaultModel);
+      }
+    } catch { /* use defaults */ }
+  }
+
   function toggleFileAttachment(file: string) {
     if (attachedFiles.includes(file)) {
       attachedFiles = attachedFiles.filter((f) => f !== file);
@@ -226,7 +237,7 @@
 
     let cid = currentConversationId || undefined;
     abortController = sendChatMessage(
-      text, cid,
+      text, cid, $currentModel,
       (event) => {
         if (event.type === "meta" && typeof event.data === "string" && event.data.length > 10) {
           currentConversationId = event.data;
@@ -378,9 +389,18 @@
     {:else if $connectionError}
       <ErrorBoundary error={$connectionError} onRetry={() => { clearErrors(); loadProjects(); }} />
     {:else}
-      {#if $currentSessionId}
+      {#if $currentMessages.length > 0 || $streamingText}
         <div class="session-bar">
-          <button class="fork-btn" onclick={forkCurrentSession} title="Fork this session">⑂ Fork</button>
+          <div class="model-picker">
+            <select class="model-select" bind:value={$currentModel}>
+              {#each $availableModels as model}
+                <option value={model}>{model}</option>
+              {/each}
+            </select>
+          </div>
+          {#if $currentSessionId}
+            <button class="fork-btn" onclick={forkCurrentSession} title="Fork this session">⑂ Fork</button>
+          {/if}
         </div>
       {/if}
       {#if $currentMessages.length === 0 && !$streamingText}
@@ -484,6 +504,13 @@
   .session-bar { display: flex; align-items: center; padding: 6px 16px; border-bottom: 1px solid var(--border); background: var(--surface); gap: 8px; }
   .fork-btn { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface2); color: var(--muted); cursor: pointer; font-size: 12px; }
   .fork-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .model-picker { margin-right: auto; }
+  .model-picker .model-select {
+    padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); font-size: 12px; max-width: 240px;
+    cursor: pointer;
+  }
+  .model-picker .model-select:hover { border-color: var(--accent); }
 
   /* Command Palette */
   .cmd-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: flex-start; justify-content: center; padding-top: 80px; z-index: 200; }

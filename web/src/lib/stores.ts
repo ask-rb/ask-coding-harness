@@ -24,6 +24,22 @@ export const isLoading = writable(false);
 export const globalError = writable<string | null>(null);
 export const connectionError = writable<string | null>(null);
 
+function loadModel(): string {
+  if (typeof localStorage !== "undefined") {
+    return localStorage.getItem("askoda_model") || "deepseek-v4-flash";
+  }
+  return "deepseek-v4-flash";
+}
+
+export const currentModel = writable<string>(loadModel());
+export const availableModels = writable<string[]>(["deepseek-v4-flash"]);
+
+currentModel.subscribe((val) => {
+  if (typeof localStorage !== "undefined") {
+    localStorage.setItem("askoda_model", val);
+  }
+});
+
 export function clearErrors() {
   globalError.set(null);
   connectionError.set(null);
