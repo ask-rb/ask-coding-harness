@@ -22,5 +22,5 @@ gem "rack-test", "~> 2.2"
 gem "sqlite3", "~> 2.0"
 
 group :development do
-  gem "rerun", "~> 0.14"
+  gem "rack-unreloader", "~> 2.1"
 end
