@@ -10,10 +10,10 @@ gem "json"
 gem "securerandom"
 
 # Ask-rb ecosystem
-gem "ask-coder", path: "../ask-coder"
 gem "ask-coding-providers", path: "../ask-coding-providers"
 gem "ask-channel-providers", path: "../ask-channel-providers"
 gem "ask-state-providers", path: "../ask-state-providers"
+gem "ask-acp", path: "../ask-acp"
 gem "ask-agent", path: "../ask-agent"
 gem "ask-llm-providers", path: "../ask-llm-providers"
 gem "ask-core", path: "../ask-core"

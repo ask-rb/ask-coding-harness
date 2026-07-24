@@ -23,6 +23,6 @@ Gem::Specification.new do |spec|
   spec.add_dependency "rack", "~> 3.1"
   spec.add_dependency "rackup", "~> 2.2"
   spec.add_dependency "ask-state-providers", ">= 0.1"
+  spec.add_dependency "ask-acp", ">= 0.1"
   spec.add_dependency "ask-coding-providers", ">= 0.1"
-  spec.add_dependency "ask-coder", ">= 0.1"
 end

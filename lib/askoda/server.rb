@@ -6,7 +6,6 @@ require "securerandom"
 require "fileutils"
 require "ask/coding_providers"
 require "ask-state-providers"
-require "ask/coder/version"
 
 module Askoda
   # Shared adapter instance (set from config.ru, accessed by routes)
