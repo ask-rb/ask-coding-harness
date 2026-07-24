@@ -84,4 +84,46 @@ class ApiTest < Minitest::Test
     assert_equal 200, last_response.status
     assert last_response.body.length > 100
   end
+
+  # ── Session fork tests ──
+
+  def test_fork_session
+    post "/api/sessions/test-sess-123/fork"
+    assert_equal 200, last_response.status
+    body = JSON.parse(last_response.body)
+    assert body["id"], "Fork should return a new session ID"
+    refute_equal "test-sess-123", body["id"], "Fork should return a different ID"
+    assert_equal "test-sess-123", body["parent_id"]
+  end
+
+  def test_timeline
+    # Fork twice to create a timeline
+    post "/api/sessions/root-sess/fork"
+    fork1 = JSON.parse(last_response.body)["id"]
+
+    post "/api/sessions/root-sess/fork"
+    fork2 = JSON.parse(last_response.body)["id"]
+
+    get "/api/sessions/root-sess/timeline"
+    assert_equal 200, last_response.status
+    body = JSON.parse(last_response.body)
+    assert_equal "root-sess", body["root"]
+    assert_operator body["branches"].length, :>=, 2
+  end
+
+  def test_timeline_empty_for_unforked
+    get "/api/sessions/never-forked/timeline"
+    assert_equal 200, last_response.status
+    body = JSON.parse(last_response.body)
+    assert_equal "never-forked", body["root"]
+    assert_equal [], body["branches"]
+  end
+
+  def test_fork_twice_returns_different_ids
+    post "/api/sessions/base-sess/fork"
+    first = JSON.parse(last_response.body)["id"]
+    post "/api/sessions/base-sess/fork"
+    second = JSON.parse(last_response.body)["id"]
+    refute_equal first, second, "Two forks should return different IDs"
+  end
 end

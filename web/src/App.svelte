@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { theme, sidebarOpen, isMobile, projects, currentSessionId, currentMessages, streaming, streamingText, isLoading, toggleTheme, toolCalls, type ToolCall } from "./lib/stores";
-  import { fetchProjects, fetchSessions, fetchSessionMessages, sendChatMessage, type Project, type Message } from "./lib/api";
+  import { fetchProjects, fetchSessions, fetchSessionMessages, sendChatMessage, forkSession, type Project, type Message } from "./lib/api";
   import Chat from "./components/Chat.svelte";
   import Welcome from "./components/Welcome.svelte";
 
@@ -134,6 +134,17 @@
     sidebarOpen.set(false);
   }
 
+  async function forkCurrentSession() {
+    if (!$currentSessionId) return;
+    try {
+      const result = await forkSession($currentSessionId);
+      navigateToSession(result.id);
+      loadProjects();
+    } catch (e) {
+      console.error("Fork failed:", e);
+    }
+  }
+
   async function handleSend(text: string) {
     if ($streaming || !text.trim()) return;
     const userMsg: Message = { role: "user", content: text };
@@ -235,6 +246,11 @@
   </aside>
 
   <main class="main" ontouchstart={handleTouchStart} ontouchend={handleTouchEnd}>
+    {#if $currentSessionId}
+      <div class="session-bar">
+        <button class="fork-btn" onclick={forkCurrentSession} title="Fork this session">⑂ Fork</button>
+      </div>
+    {/if}
     {#if $currentMessages.length === 0 && !$streamingText}
       <Welcome {newChat} onSend={handleSend} />
     {:else}
@@ -317,6 +333,9 @@
   .sess-item .meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
   .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .session-bar { display: flex; align-items: center; padding: 6px 16px; border-bottom: 1px solid var(--border); background: var(--surface); gap: 8px; }
+  .fork-btn { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface2); color: var(--muted); cursor: pointer; font-size: 12px; }
+  .fork-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 
   /* Command Palette */
   .cmd-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: flex-start; justify-content: center; padding-top: 80px; z-index: 200; }

@@ -87,10 +87,39 @@ module Askoda
 
         # GET /api/sessions/:id — get session messages from adapter
         r.on "sessions", String do |id|
+          # GET /api/sessions/:id/timeline — get fork tree (must be before catch-all)
+          r.get "timeline" do
+            db = open_db
+            forks = db.get("session_forks") || { "tree" => {} }
+            tree = forks["tree"]
+            db.close
+
+            branches = build_branch_tree(id, tree)
+            { root: id, branches: branches }.to_json
+          end
+
+          # GET /api/sessions/:id — session messages (catch-all for /sessions/:id)
           r.get do
-            history = Askoda._adapter.session_history(id) || []
+            history = self.class.build_provider_adapter.session_history(id) || []
             messages = history.map { |m| { role: m[:role] == "You" ? "user" : "assistant", content: m[:text], created_at: Time.now.iso8601 } }
             { id: id, messages: messages }.to_json
+          end
+
+          # POST /api/sessions/:id/fork — fork a session
+          r.post "fork" do
+            db = open_db
+            forks = db.get("session_forks") || { "tree" => {} }
+            tree = forks["tree"]
+
+            adapter = Askoda._adapter
+            sid = adapter.create_session("/tmp")
+
+            tree[sid] = { parent: id, forked_at: Time.now.iso8601 }
+            db.set("session_forks", { "tree" => tree })
+            db.list_append("fork_index", sid, max_length: 1000)
+            db.close
+
+            { id: sid, parent_id: id, forked_at: Time.now.iso8601 }.to_json
           end
         end
 
@@ -214,6 +243,19 @@ module Askoda
     end
 
     private
+
+    def build_branch_tree(root_id, tree)
+      # Find all children of root_id (direct and indirect)
+      children = tree.select { |_, v| v["parent"] == root_id }.map { |k, _| k }
+      children.map do |child_id|
+        {
+          id: child_id,
+          parent: root_id,
+          forked_at: tree[child_id]["forked_at"],
+          branches: build_branch_tree(child_id, tree)
+        }
+      end
+    end
 
     def open_db
       dir = File.dirname(DB_PATH)

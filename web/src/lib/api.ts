@@ -52,6 +52,12 @@ export async function fetchConversations(): Promise<Conversation[]> {
   return await res.json();
 }
 
+export async function forkSession(sessionId: string): Promise<{ id: string; parent_id: string }> {
+  const res = await fetch(`${BASE}/api/sessions/${sessionId}/fork`, { method: "POST" });
+  if (!res.ok) throw new Error(`Failed to fork session: ${res.status}`);
+  return await res.json();
+}
+
 export function sendChatMessage(
   message: string,
   conversationId?: string,
