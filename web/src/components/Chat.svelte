@@ -5,6 +5,24 @@
   import type { Message as Msg } from "../lib/api";
   import Fuse from "fuse.js";
 
+  let markedFn: any = null;
+
+  onMount(async () => {
+    const mod = await import("https://cdn.jsdelivr.net/npm/marked@15/+esm");
+    markedFn = mod.marked;
+  });
+
+  let renderedStream = "";
+  $: if (markedFn && streamingText) {
+    try {
+      renderedStream = markedFn.parse(streamingText, { breaks: true });
+    } catch {
+      renderedStream = streamingText;
+    }
+  } else {
+    renderedStream = "";
+  }
+
   export let messages: Msg[] = [];
   export let streamingText = "";
   export let isStreaming = false;
@@ -89,7 +107,11 @@
     {/each}
     {#if isStreaming && streamingText}
       <div class="msg assistant streaming">
-        <div class="msg-content">{streamingText}</div>
+        {#if renderedStream}
+          <div class="markdown">{@html renderedStream}</div>
+        {:else}
+          <div class="msg-content">{streamingText}</div>
+        {/if}
         <span class="cursor">▊</span>
       </div>
     {/if}
