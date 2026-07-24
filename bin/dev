@@ -12,4 +12,4 @@ fi
 mkdir -p api/data
 
 echo "🚀 Askoda — http://localhost:${PORT:-8080}  (auto-reload on file changes)"
-bundle exec rerun -- rackup config.ru -p ${PORT:-8080} -o ${HOST:-0.0.0.0}
+find . -path ./vendor -prune -o \( -name '*.rb' -o -name '*.ru' \) -print | entr -r bundle exec rackup config.ru -p ${PORT:-8080} -o ${HOST:-0.0.0.0}
