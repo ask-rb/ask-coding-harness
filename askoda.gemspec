@@ -1,21 +1,21 @@
 # frozen_string_literal: true
 
 Gem::Specification.new do |spec|
-  spec.name = "askoda-server"
+  spec.name = "askoda"
   spec.version = "0.1.0"
   spec.authors = ["Kaka Ruto"]
   spec.email = ["kaka@myrrlabs.com"]
 
   spec.summary = "HTTP API + PWA for the Askoda coding assistant"
   spec.description = "A deployable web service that exposes coding AI adapters via a simple HTTP/SSE API, with a built-in mobile-first PWA frontend."
-  spec.homepage = "https://github.com/ask-rb/askoda-server"
+  spec.homepage = "https://github.com/ask-rb/askoda"
   spec.license = "MIT"
 
   spec.required_ruby_version = ">= 3.2"
 
   spec.files = Dir["lib/**/*", "public/**/*", "bin/*"]
   spec.bindir = "bin"
-  spec.executables = ["askoda-server"]
+  spec.executables = ["askoda"]
   spec.require_paths = ["lib"]
 
   spec.add_dependency "roda", "~> 3.80"
