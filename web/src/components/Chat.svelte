@@ -6,6 +6,7 @@
   export let messages: Msg[] = [];
   export let streamingText = "";
   export let isStreaming = false;
+  export let toolCalls = [];
   export let onSend: (text: string) => void;
   export let onCancel: () => void;
 
@@ -36,6 +37,19 @@
   <div class="messages" bind:this={messagesEl}>
     {#each messages as msg, i (i)}
       <Message {msg} />
+    {/each}
+    {#each toolCalls as tc}
+      <div class="tool-call">
+        <div class="tool-icon">{tc.status === "running" ? "🔧" : "✅"}</div>
+        <div class="tool-info">
+          <span class="tool-name">{tc.name}</span>
+          {#if tc.status === "running"}
+            <span class="tool-status">running...</span>
+          {:else}
+            <span class="tool-status">completed</span>
+          {/if}
+        </div>
+      </div>
     {/each}
     {#if isStreaming && streamingText}
       <div class="msg assistant streaming">
@@ -82,6 +96,11 @@
   .msg-content { white-space: pre-wrap; }
   .cursor { animation: blink 1s step-end infinite; color: var(--accent); font-size: 14px; }
   @keyframes blink { 50% { opacity: 0; } }
+
+  .tool-call { display: flex; align-items: center; gap: 8px; padding: 6px 16px; margin: 4px 0 4px 16px; max-width: 80%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; }
+  .tool-icon { font-size: 14px; }
+  .tool-name { font-size: 13px; font-weight: 500; text-transform: capitalize; }
+  .tool-status { font-size: 11px; color: var(--muted); margin-left: 8px; }
 
   .input-area { border-top: 1px solid var(--border); padding: 12px 16px; background: var(--surface); }
   .input-row { display: flex; gap: 8px; align-items: flex-end; max-width: 800px; margin: 0 auto; }

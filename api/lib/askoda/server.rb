@@ -151,6 +151,10 @@ module Askoda
                   conversation[:messages] << { role: "assistant", content: "Error: #{err}", created_at: Time.now.iso8601 }
                   save_conversation(db, conversation)
                   out << "event: turn.failed\ndata: #{JSON.generate(error: err)}\n\n"
+                when "tool.use"
+                  out << "event: tool.use\ndata: #{JSON.generate(toolUse: ev.dig(:payload, "toolName"), input: ev.dig(:payload, "input"))}\n\n"
+                when "tool.result"
+                  out << "event: tool.result\ndata: #{JSON.generate(toolResult: ev.dig(:payload, "output"), toolName: ev.dig(:payload, "toolName"))}\n\n"
                 end
               end
             rescue => e

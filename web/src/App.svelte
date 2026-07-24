@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import { theme, sidebarOpen, isMobile, projects, currentSessionId, currentMessages, streaming, streamingText, isLoading, toggleTheme } from "./lib/stores";
+  import { theme, sidebarOpen, isMobile, projects, currentSessionId, currentMessages, streaming, streamingText, isLoading, toggleTheme, toolCalls, type ToolCall } from "./lib/stores";
   import { fetchProjects, fetchSessions, fetchSessionMessages, sendChatMessage, type Project, type Message } from "./lib/api";
   import Chat from "./components/Chat.svelte";
   import Welcome from "./components/Welcome.svelte";
@@ -12,6 +12,7 @@
   let connected = false;
   let showCmdPalette = false;
   let cmdFilter = "";
+  let toolIdCounter = 0;
 
   $: projects.set(projectsList);
 
@@ -120,6 +121,7 @@
     currentMessages.update((msgs) => [...msgs, userMsg]);
     streaming.set(true);
     streamingText.set("");
+    toolCalls.set([]);
 
     let cid = $currentSessionId || undefined;
     abortController = sendChatMessage(
@@ -131,11 +133,23 @@
         }
         if (event.type === "data" && event.data.response) {
           streamingText.set("");
+          toolCalls.set([]);
           currentMessages.update((msgs) => [...msgs, { role: "assistant", content: event.data.response }]);
           loadProjects();
         }
         if (event.type === "data" && event.data.delta) {
           streamingText.update((t) => t + event.data.delta);
+        }
+        if (event.type === "data" && event.data.toolUse) {
+          const tc: ToolCall = { id: ++toolIdCounter, name: event.data.toolUse, status: "running" };
+          toolCalls.update((calls) => [...calls, tc]);
+        }
+        if (event.type === "data" && event.data.toolResult) {
+          toolCalls.update((calls) => {
+            const last = calls[calls.length - 1];
+            if (last) { last.status = "completed"; last.output = event.data.toolResult; }
+            return calls;
+          });
         }
       },
       (err) => currentMessages.update((msgs) => [...msgs, { role: "assistant", content: `Error: ${err}` }]),
@@ -205,7 +219,7 @@
     {#if $currentMessages.length === 0 && !$streamingText}
       <Welcome {newChat} onSend={handleSend} />
     {:else}
-      <Chat messages={$currentMessages} streamingText={$streamingText} isStreaming={$streaming} onSend={handleSend} onCancel={cancelStream} />
+      <Chat messages={$currentMessages} streamingText={$streamingText} isStreaming={$streaming} toolCalls={$toolCalls} onSend={handleSend} onCancel={cancelStream} />
     {/if}
   </main>
 </div>

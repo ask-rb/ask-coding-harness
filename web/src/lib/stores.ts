@@ -10,6 +10,15 @@ export const currentSessionId = writable<string | null>(null);
 export const currentMessages = writable<Message[]>([]);
 export const streaming = writable(false);
 export const streamingText = writable("");
+export const toolCalls = writable<ToolCall[]>([]);
+
+export interface ToolCall {
+  id: number;
+  name: string;
+  input?: any;
+  output?: any;
+  status: "running" | "completed" | "failed";
+}
 
 export const isLoading = writable(false);
 
