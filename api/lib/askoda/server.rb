@@ -226,13 +226,75 @@ module Askoda
             end
           end
 
-          # DELETE /api/conversations/:id
-          r.on method: :delete do
+          # DELETE /api/conversations/:id (only when path is fully consumed)
+          r.is method: :delete do
             db = open_db
             db.delete("conv:#{id}")
             db.list_remove(CONVERSATIONS_KEY, id)
             db.close
             { deleted: true }.to_json
+          end
+
+          # /api/conversations/:id/messages/:index
+          r.on "messages", Integer do |index|
+            # PATCH /api/conversations/:id/messages/:index — edit a user message
+            r.on method: :patch do
+              body = JSON.parse(r.body.read)
+              new_content = body["content"].to_s.strip
+
+              if new_content.empty?
+                response.status = 400
+                next { error: "content is required" }.to_json
+              end
+
+              db = open_db
+              conv = load_conversation(db, id)
+              unless conv
+                db.close
+                response.status = 404
+                next { error: "Conversation not found" }.to_json
+              end
+
+              if index >= conv[:messages].length
+                db.close
+                response.status = 404
+                next { error: "Message not found" }.to_json
+              end
+
+              msg = conv[:messages][index]
+              if msg[:role] != "user"
+                db.close
+                response.status = 400
+                next { error: "Only user messages can be edited" }.to_json
+              end
+
+              msg[:content] = new_content
+              save_conversation(db, conv)
+              db.close
+              conv.to_json
+            end
+
+            # DELETE /api/conversations/:id/messages/:index — delete from here
+            r.on method: :delete do
+              db = open_db
+              conv = load_conversation(db, id)
+              unless conv
+                db.close
+                response.status = 404
+                next { error: "Conversation not found" }.to_json
+              end
+
+              if index >= conv[:messages].length
+                db.close
+                response.status = 404
+                next { error: "Message not found" }.to_json
+              end
+
+              conv[:messages] = conv[:messages][0...index]
+              save_conversation(db, conv)
+              db.close
+              conv.to_json
+            end
           end
         end
       end

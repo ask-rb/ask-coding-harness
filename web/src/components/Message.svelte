@@ -3,30 +3,105 @@
   import type { Message as Msg } from "../lib/api";
 
   export let msg: Msg;
+  export let index: number = 0;
+  export let onEdit: (index: number, content: string) => void = () => {};
+  export let onDelete: (index: number) => void = () => {};
+  export let onRetry: (index: number) => void = () => {};
 
-  let rendered: string;
+  let markedFn: any = null;
+  let rendered = "";
+  let editing = false;
+  let editContent = "";
+  let deleteConfirm = false;
 
   onMount(async () => {
-    const { marked } = await import("https://cdn.jsdelivr.net/npm/marked@15/+esm");
-    rendered = marked.parse(msg.content, { breaks: true });
+    const mod = await import("https://cdn.jsdelivr.net/npm/marked@15/+esm");
+    markedFn = mod.marked;
+    renderContent();
   });
 
-  function copyCode(code: string) {
-    navigator.clipboard.writeText(code);
+  function renderContent() {
+    if (markedFn) {
+      rendered = markedFn.parse(msg.content, { breaks: true });
+    }
+  }
+
+  $: if (markedFn && msg.content) {
+    renderContent();
+  }
+
+  $: isError = msg.role === "assistant" && msg.content.startsWith("Error:");
+
+  function startEdit() {
+    editContent = msg.content;
+    editing = true;
+  }
+
+  function saveEdit() {
+    if (editContent.trim()) {
+      onEdit(index, editContent.trim());
+    }
+    editing = false;
+  }
+
+  function cancelEdit() {
+    editing = false;
+  }
+
+  function requestDelete() {
+    deleteConfirm = true;
+  }
+
+  function confirmDelete() {
+    deleteConfirm = false;
+    onDelete(index);
+  }
+
+  function cancelDelete() {
+    deleteConfirm = false;
+  }
+
+  function handleRetry() {
+    onRetry(index);
   }
 </script>
 
-<div class="msg {msg.role}">
+<div class="msg {msg.role}" class:editing>
   {#if msg.role === "assistant"}
     <div class="msg-avatar">🤖</div>
   {/if}
   <div class="msg-bubble">
-    {#if rendered}
-      <div class="markdown">
-        {@html rendered}
+    {#if editing}
+      <textarea class="edit-textarea" bind:value={editContent}></textarea>
+      <div class="edit-actions">
+        <button class="edit-save" onclick={saveEdit}>Save</button>
+        <button class="edit-cancel" onclick={cancelEdit}>Cancel</button>
+      </div>
+    {:else if deleteConfirm}
+      <div class="delete-confirm">
+        <span>Delete from here?</span>
+        <div class="delete-actions">
+          <button class="delete-yes" onclick={confirmDelete}>Yes</button>
+          <button class="delete-no" onclick={cancelDelete}>No</button>
+        </div>
       </div>
     {:else}
-      <div class="plain">{msg.content}</div>
+      {#if rendered}
+        <div class="markdown">
+          {@html rendered}
+        </div>
+      {:else}
+        <div class="plain">{msg.content}</div>
+      {/if}
+      <div class="msg-actions">
+        {#if msg.role === "user"}
+          <button class="action-btn" onclick={startEdit} title="Edit message">✏️</button>
+        {/if}
+        <button class="action-btn" onclick={requestDelete} title="Delete from here">🗑️</button>
+        {#if isError}
+          <button class="action-btn retry-btn" onclick={handleRetry} title="Retry">↻</button>
+        {/if}
+      </div>
     {/if}
   </div>
 </div>
@@ -37,7 +112,7 @@
   .msg-avatar { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; background: var(--surface2); }
   .msg-bubble {
     padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.6;
-    max-width: 85%; word-wrap: break-word;
+    max-width: 85%; word-wrap: break-word; position: relative;
   }
   .msg.user .msg-bubble { background: var(--user-bg); color: var(--user-text); border-bottom-right-radius: 4px; }
   .msg.assistant .msg-bubble { background: var(--surface2); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
@@ -52,4 +127,37 @@
   :global(.msg-bubble a) { color: var(--accent); text-decoration: none; }
   :global(.msg-bubble a:hover) { text-decoration: underline; }
   :global(.msg-bubble h1), :global(.msg-bubble h2), :global(.msg-bubble h3), :global(.msg-bubble h4) { margin: 12px 0 6px; line-height: 1.3; }
+
+  .msg-actions {
+    display: none; gap: 4px; margin-top: 6px; justify-content: flex-end;
+  }
+  .msg:hover .msg-actions { display: flex; }
+  .action-btn {
+    background: none; border: 1px solid var(--border); border-radius: 4px;
+    padding: 2px 6px; cursor: pointer; font-size: 12px; line-height: 1;
+    color: var(--muted);
+  }
+  .action-btn:hover { color: var(--text); background: var(--surface2); }
+  .retry-btn { color: var(--accent); }
+  .retry-btn:hover { background: var(--accent); color: #fff; }
+
+  .edit-textarea {
+    width: 100%; min-height: 60px; resize: vertical;
+    background: var(--surface2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px; font-size: 14px; outline: none;
+    box-sizing: border-box;
+  }
+  .edit-textarea:focus { border-color: var(--accent); }
+  .edit-actions, .delete-actions { display: flex; gap: 6px; margin-top: 6px; }
+  .edit-save, .delete-yes {
+    padding: 4px 12px; border-radius: 6px; border: none;
+    background: var(--accent); color: #fff; cursor: pointer; font-size: 12px;
+  }
+  .edit-save:hover, .delete-yes:hover { background: var(--accent-hover); }
+  .edit-cancel, .delete-no {
+    padding: 4px 12px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); cursor: pointer; font-size: 12px;
+  }
+  .edit-cancel:hover, .delete-no:hover { background: var(--surface2); }
+  .delete-confirm { font-size: 13px; color: var(--muted); }
 </style>

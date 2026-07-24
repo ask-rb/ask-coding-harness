@@ -216,4 +216,70 @@ class ApiTest < Minitest::Test
     assert_equal "first msg", conv["messages"][0]["content"]
     assert_equal "second msg", conv["messages"][2]["content"]
   end
+
+  # ── Message action tests ──
+
+  def create_test_conversation
+    post "/api/chat", { message: "hello" }.to_json, { "CONTENT_TYPE" => "application/json" }
+    assert_equal 200, last_response.status
+    cid = nil
+    last_response.body.each_line do |line|
+      if line.start_with?("data: ") && line.length > 20
+        cid = line[6..].strip
+        break
+      end
+    end
+    cid
+  end
+
+  def test_edit_message
+    cid = create_test_conversation
+    refute_nil cid
+
+    # Edit the user message at index 0
+    patch "/api/conversations/#{cid}/messages/0", { content: "updated hello" }.to_json, { "CONTENT_TYPE" => "application/json" }
+    assert_equal 200, last_response.status
+    conv = JSON.parse(last_response.body)
+    assert_equal "updated hello", conv["messages"][0]["content"]
+  end
+
+  def test_edit_assistant_message_returns_400
+    cid = create_test_conversation
+    refute_nil cid
+
+    # Try editing the assistant message at index 1
+    patch "/api/conversations/#{cid}/messages/1", { content: "edited" }.to_json, { "CONTENT_TYPE" => "application/json" }
+    assert_equal 400, last_response.status
+  end
+
+  def test_delete_messages_from
+    cid = create_test_conversation
+    refute_nil cid
+
+    # Delete from index 1 (remove the assistant response)
+    delete "/api/conversations/#{cid}/messages/1"
+    assert_equal 200, last_response.status
+    conv = JSON.parse(last_response.body)
+    assert_equal 1, conv["messages"].length, "Should have 1 message remaining"
+    assert_equal "user", conv["messages"][0]["role"]
+  end
+
+  def test_delete_all_messages
+    cid = create_test_conversation
+    refute_nil cid
+
+    # Delete from index 0 (remove all messages)
+    delete "/api/conversations/#{cid}/messages/0"
+    assert_equal 200, last_response.status
+    conv = JSON.parse(last_response.body)
+    assert_equal 0, conv["messages"].length, "Should have 0 messages remaining"
+  end
+
+  def test_edit_nonexistent_message
+    cid = create_test_conversation
+    refute_nil cid
+
+    patch "/api/conversations/#{cid}/messages/99", { content: "nope" }.to_json, { "CONTENT_TYPE" => "application/json" }
+    assert_equal 404, last_response.status
+  end
 end

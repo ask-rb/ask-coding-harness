@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { theme, sidebarOpen, isMobile, projects, currentSessionId, currentMessages, streaming, streamingText, isLoading, toggleTheme, toolCalls, type ToolCall, globalError, connectionError, clearErrors } from "./lib/stores";
-  import { fetchProjects, fetchSessions, fetchSessionMessages, sendChatMessage, forkSession, fetchConversations, fetchConversation, type Project, type Message, type Conversation } from "./lib/api";
+  import { fetchProjects, fetchSessions, fetchSessionMessages, sendChatMessage, forkSession, fetchConversations, fetchConversation, editMessage, deleteMessagesFrom, type Project, type Message, type Conversation } from "./lib/api";
   import ErrorBoundary from "./components/ErrorBoundary.svelte";
   import Settings from "./components/Settings.svelte";
   import Chat from "./components/Chat.svelte";
@@ -230,6 +230,48 @@
     if (finalText) { currentMessages.update((msgs) => [...msgs, { role: "assistant", content: finalText }]); streamingText.set(""); }
   }
 
+  async function handleEdit(index: number, content: string) {
+    if (!currentConversationId) return;
+    try {
+      const updated = await editMessage(currentConversationId, index, content);
+      currentMessages.set(updated.messages || []);
+      loadConversations();
+    } catch (e) {
+      console.error("Edit failed:", e);
+    }
+  }
+
+  async function handleDelete(index: number) {
+    if (!currentConversationId) return;
+    try {
+      const updated = await deleteMessagesFrom(currentConversationId, index);
+      currentMessages.set(updated.messages || []);
+      loadConversations();
+    } catch (e) {
+      console.error("Delete failed:", e);
+    }
+  }
+
+  async function handleRetry(index: number) {
+    if (!currentConversationId) return;
+    if ($streaming) return;
+    const msgs = $currentMessages;
+    // Find the user message that preceded this error
+    const userIdx = index > 0 && msgs[index - 1]?.role === "user" ? index - 1 : index;
+    const userText = msgs[userIdx]?.content || "";
+    try {
+      const updated = await deleteMessagesFrom(currentConversationId, userIdx);
+      currentMessages.set(updated.messages || []);
+      loadConversations();
+    } catch (e) {
+      console.error("Retry delete failed:", e);
+      return;
+    }
+    if (userText) {
+      handleSend(userText);
+    }
+  }
+
   $: filteredCommands = [
     { id: "new", label: "New conversation", action: newChat },
     { id: "projects", label: "Reload projects", action: loadProjects },
@@ -307,7 +349,7 @@
       {#if $currentMessages.length === 0 && !$streamingText}
         <Welcome {newChat} onSend={handleSend} />
       {:else}
-        <Chat messages={$currentMessages} streamingText={$streamingText} isStreaming={$streaming} toolCalls={$toolCalls} onSend={handleSend} onCancel={cancelStream} />
+        <Chat messages={$currentMessages} streamingText={$streamingText} isStreaming={$streaming} toolCalls={$toolCalls} onSend={handleSend} onCancel={cancelStream} {onEdit} {onDelete} {onRetry} />
       {/if}
       {#if refresing}
         <div class="pull-indicator">↻ Refreshing...</div>

@@ -58,6 +58,24 @@ export async function fetchConversations(): Promise<Conversation[]> {
   return await res.json();
 }
 
+export async function editMessage(conversationId: string, index: number, content: string): Promise<Conversation> {
+  const res = await fetch(`${BASE}/api/conversations/${conversationId}/messages/${index}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  if (!res.ok) throw new Error(`Failed to edit message: ${res.status}`);
+  return await res.json();
+}
+
+export async function deleteMessagesFrom(conversationId: string, index: number): Promise<Conversation> {
+  const res = await fetch(`${BASE}/api/conversations/${conversationId}/messages/${index}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error(`Failed to delete messages: ${res.status}`);
+  return await res.json();
+}
+
 export async function forkSession(sessionId: string): Promise<{ id: string; parent_id: string }> {
   const res = await fetch(`${BASE}/api/sessions/${sessionId}/fork`, { method: "POST" });
   if (!res.ok) throw new Error(`Failed to fork session: ${res.status}`);

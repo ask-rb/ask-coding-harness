@@ -10,6 +10,9 @@
   export let toolCalls = [];
   export let onSend: (text: string) => void;
   export let onCancel: () => void;
+  export let onEdit: (index: number, content: string) => void = () => {};
+  export let onDelete: (index: number) => void = () => {};
+  export let onRetry: (index: number) => void = () => {};
 
   let inputValue = "";
   let messagesEl: HTMLDivElement;
@@ -37,7 +40,7 @@
 <div class="chat-container">
   <div class="messages" bind:this={messagesEl}>
     {#each messages as msg, i (i)}
-      <Message {msg} />
+      <Message {msg} {i} {onEdit} {onDelete} {onRetry} />
     {/each}
     {#each toolCalls as tc}
       <div class="tool-call">
