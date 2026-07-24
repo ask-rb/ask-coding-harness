@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { theme, sidebarOpen, isMobile, projects, currentSessionId, currentMessages, streaming, streamingText, isLoading, chatTitle, toggleTheme, openSidebar } from "./lib/stores";
+  import { onMount, onDestroy } from "svelte";
+  import { theme, sidebarOpen, isMobile, projects, currentSessionId, currentMessages, streaming, streamingText, isLoading, toggleTheme } from "./lib/stores";
   import { fetchProjects, fetchSessions, fetchSessionMessages, sendChatMessage, type Project, type Message } from "./lib/api";
   import Chat from "./components/Chat.svelte";
   import Welcome from "./components/Welcome.svelte";
@@ -8,8 +8,10 @@
   let expandedDirs: Set<string> = new Set();
   let sessionCache: Record<string, any[]> = {};
   let projectsList: Project[] = [];
-  let inputText = "";
   let abortController: AbortController | null = null;
+  let connected = false;
+  let showCmdPalette = false;
+  let cmdFilter = "";
 
   $: projects.set(projectsList);
 
@@ -17,12 +19,22 @@
     loadTheme();
     loadProjects();
     checkMobile();
+    checkConnection();
+    handleRoute();
     window.addEventListener("resize", checkMobile);
+    window.addEventListener("keydown", handleKey);
+    window.addEventListener("hashchange", handleRoute);
+    window.addEventListener("popstate", handleRoute);
   });
 
-  function checkMobile() {
-    isMobile.set(window.innerWidth < 768);
-  }
+  onDestroy(() => {
+    window.removeEventListener("resize", checkMobile);
+    window.removeEventListener("keydown", handleKey);
+    window.removeEventListener("hashchange", handleRoute);
+    window.removeEventListener("popstate", handleRoute);
+  });
+
+  function checkMobile() { isMobile.set(window.innerWidth < 768); }
 
   function loadTheme() {
     const dark = localStorage.getItem("theme") !== "light";
@@ -37,29 +49,51 @@
     toggleTheme();
   }
 
+  function handleKey(e: KeyboardEvent) {
+    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      e.preventDefault();
+      showCmdPalette = !showCmdPalette;
+      cmdFilter = "";
+    }
+    if (e.key === "Escape") {
+      showCmdPalette = false;
+      sidebarOpen.set(false);
+    }
+  }
+
+  async function checkConnection() {
+    try {
+      const res = await fetch("/api/projects");
+      connected = res.ok;
+    } catch { connected = false; }
+    setTimeout(checkConnection, 30000);
+  }
+
+  function handleRoute() {
+    const hash = location.hash.slice(1) || location.pathname;
+    const match = hash.match(/^\/session\/(.+)/);
+    if (match) selectSession(match[1]);
+  }
+
+  function navigateToSession(id: string) {
+    history.pushState(null, "", `/session/${id}`);
+    selectSession(id);
+  }
+
   async function loadProjects() {
     isLoading.set(true);
     try {
       projectsList = await fetchProjects();
-    } catch (e) {
-      projectsList = [];
-    } finally {
-      isLoading.set(false);
-    }
+    } catch { projectsList = []; }
+    finally { isLoading.set(false); }
   }
 
   async function toggleProject(dir: string) {
-    if (expandedDirs.has(dir)) {
-      expandedDirs.delete(dir);
-      expandedDirs = expandedDirs;
-      return;
-    }
+    if (expandedDirs.has(dir)) { expandedDirs.delete(dir); expandedDirs = expandedDirs; return; }
     expandedDirs.add(dir);
     expandedDirs = expandedDirs;
     if (!sessionCache[dir]) {
-      try {
-        sessionCache[dir] = await fetchSessions(dir);
-      } catch { sessionCache[dir] = []; }
+      try { sessionCache[dir] = await fetchSessions(dir); } catch { sessionCache[dir] = []; }
     }
   }
 
@@ -73,6 +107,7 @@
   }
 
   function newChat() {
+    history.pushState(null, "", "/");
     currentSessionId.set(null);
     currentMessages.set([]);
     streamingText.set("");
@@ -83,17 +118,16 @@
     if ($streaming || !text.trim()) return;
     const userMsg: Message = { role: "user", content: text };
     currentMessages.update((msgs) => [...msgs, userMsg]);
-    inputText = "";
     streaming.set(true);
     streamingText.set("");
 
     let cid = $currentSessionId || undefined;
     abortController = sendChatMessage(
-      text,
-      cid,
+      text, cid,
       (event) => {
-        if (event.type === "meta" && typeof event.data === "string" && event.data.startsWith("sess_")) {
+        if (event.type === "meta" && typeof event.data === "string" && event.data.length > 10) {
           currentSessionId.set(event.data);
+          navigateToSession(event.data);
         }
         if (event.type === "data" && event.data.response) {
           streamingText.set("");
@@ -103,17 +137,9 @@
         if (event.type === "data" && event.data.delta) {
           streamingText.update((t) => t + event.data.delta);
         }
-        if (event.type === "data" && event.data.error) {
-          console.error(event.data.error);
-        }
       },
-      (err) => {
-        currentMessages.update((msgs) => [...msgs, { role: "assistant", content: `Error: ${err}` }]);
-      },
-      () => {
-        streaming.set(false);
-        abortController = null;
-      }
+      (err) => currentMessages.update((msgs) => [...msgs, { role: "assistant", content: `Error: ${err}` }]),
+      () => { streaming.set(false); abortController = null; }
     );
   }
 
@@ -121,11 +147,14 @@
     abortController?.abort();
     streaming.set(false);
     const finalText = $streamingText;
-    if (finalText) {
-      currentMessages.update((msgs) => [...msgs, { role: "assistant", content: finalText }]);
-      streamingText.set("");
-    }
+    if (finalText) { currentMessages.update((msgs) => [...msgs, { role: "assistant", content: finalText }]); streamingText.set(""); }
   }
+
+  $: filteredCommands = [
+    { id: "new", label: "New conversation", action: newChat },
+    { id: "projects", label: "Reload projects", action: loadProjects },
+    { id: "theme", label: "Toggle theme", action: handleToggleTheme },
+  ].filter((c) => c.label.toLowerCase().includes(cmdFilter.toLowerCase()));
 </script>
 
 <div class="app">
@@ -134,19 +163,17 @@
   <aside class="sidebar" class:open={$sidebarOpen}>
     <div class="sidebar-header">
       <h1>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-          <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
-        </svg>
+        <span class="status-dot" class:online={connected} title={connected ? "Connected" : "Disconnected"} />
         Askoda
       </h1>
       <div class="sidebar-actions">
-        <button onclick={newChat} title="New chat">✚</button>
-        <button onclick={handleToggleTheme} title="Toggle theme">{document.body.classList.contains("light") ? "☾" : "☀"}</button>
+        <button onclick={newChat} title="New chat (⌘N)">✚</button>
+        <button onclick={handleToggleTheme} title="Toggle theme">{$theme === "dark" ? "☀" : "☾"}</button>
       </div>
     </div>
     <div class="sidebar-scroll">
       {#if $isLoading}
-        <div class="loading">Loading projects...</div>
+        <div class="loading"><div class="spinner" /> Loading projects...</div>
       {:else if projectsList.length === 0}
         <div class="empty">No projects found</div>
       {:else}
@@ -160,11 +187,8 @@
             {#if expandedDirs.has(proj.directory) && sessionCache[proj.directory]}
               <div class="session-list">
                 {#each sessionCache[proj.directory] as sess}
-                  <button
-                    class="sess-item"
-                    class:active={sess.id === $currentSessionId}
-                    onclick={() => selectSession(sess.id)}
-                  >
+                  <button class="sess-item" class:active={sess.id === $currentSessionId}
+                    onclick={() => navigateToSession(sess.id)}>
                     <div class="title">{sess.title || "Untitled"}</div>
                     <div class="meta">{sess.message_count || 0} msgs</div>
                   </button>
@@ -179,22 +203,34 @@
 
   <main class="main">
     {#if $currentMessages.length === 0 && !$streamingText}
-      <Welcome {newChat} />
+      <Welcome {newChat} onSend={handleSend} />
     {:else}
-      <Chat
-        messages={$currentMessages}
-        streamingText={$streamingText}
-        isStreaming={$streaming}
-        onSend={handleSend}
-        onCancel={cancelStream}
-      />
+      <Chat messages={$currentMessages} streamingText={$streamingText} isStreaming={$streaming} onSend={handleSend} onCancel={cancelStream} />
     {/if}
   </main>
 </div>
 
+<!-- Command Palette -->
+{#if showCmdPalette}
+  <div class="cmd-overlay" onclick={() => showCmdPalette = false} onkeydown={(e) => e.key === "Escape" && (showCmdPalette = false)}>
+    <div class="cmd-palette" onclick={(e) => e.stopPropagation()}>
+      <input class="cmd-input" placeholder="Type a command..." bind:value={cmdFilter} autofocus onkeydown={(e) => { if (e.key === "Enter" && filteredCommands[0]) { filteredCommands[0].action(); showCmdPalette = false; } }} />
+      <div class="cmd-list">
+        {#each filteredCommands as cmd}
+          <button class="cmd-item" onclick={() => { cmd.action(); showCmdPalette = false; }}>
+            <span>{cmd.label}</span>
+          </button>
+        {/each}
+        {#if filteredCommands.length === 0}
+          <div class="cmd-empty">No matching commands</div>
+        {/if}
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .app { display: flex; height: 100%; overflow: hidden; }
-  
   .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 99; }
   .sidebar-overlay.show { display: block; }
 
@@ -202,12 +238,15 @@
     width: 280px; flex-shrink: 0; border-right: 1px solid var(--border);
     background: var(--surface); display: flex; flex-direction: column; z-index: 100;
   }
+
   .sidebar-header {
     padding: 14px 16px; border-bottom: 1px solid var(--border);
     display: flex; align-items: center; justify-content: space-between;
   }
   .sidebar-header h1 { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-  .sidebar-header h1 svg { color: var(--accent); }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); flex-shrink: 0; }
+  .status-dot.online { background: var(--success); box-shadow: 0 0 6px var(--success); }
+
   .sidebar-actions { display: flex; gap: 4px; }
   .sidebar-actions button {
     width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border);
@@ -218,6 +257,8 @@
 
   .sidebar-scroll { flex: 1; overflow-y: auto; padding: 8px; }
   .loading, .empty { padding: 16px; text-align: center; color: var(--muted); font-size: 13px; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--muted); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; margin-right: 6px; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   .proj-group { margin-bottom: 4px; }
   .proj-header {
@@ -241,8 +282,18 @@
 
   .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 
+  /* Command Palette */
+  .cmd-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: flex-start; justify-content: center; padding-top: 80px; z-index: 200; }
+  .cmd-palette { width: 500px; max-width: 90vw; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,.4); }
+  .cmd-input { width: 100%; padding: 14px 16px; background: var(--surface2); border: none; color: var(--text); font-size: 15px; outline: none; border-bottom: 1px solid var(--border); }
+  .cmd-list { max-height: 300px; overflow-y: auto; padding: 4px; }
+  .cmd-item { width: 100%; padding: 10px 14px; background: none; border: none; color: var(--text); text-align: left; cursor: pointer; border-radius: 6px; font-size: 14px; }
+  .cmd-item:hover { background: var(--surface2); }
+  .cmd-empty { padding: 16px; text-align: center; color: var(--muted); font-size: 13px; }
+
   @media (max-width: 768px) {
     .sidebar { position: fixed; top: 0; left: 0; bottom: 0; transform: translateX(-100%); width: 85vw; max-width: 320px; transition: transform .2s; }
     .sidebar.open { transform: translateX(0); }
+    .cmd-overlay { padding-top: 40px; }
   }
 </style>
