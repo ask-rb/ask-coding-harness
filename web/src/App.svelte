@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { theme, sidebarOpen, isMobile, projects, currentSessionId, currentMessages, streaming, streamingText, isLoading, toggleTheme, toolCalls, type ToolCall, globalError, connectionError, clearErrors, currentModel, availableModels } from "./lib/stores";
-  import { fetchProjects, fetchSessions, fetchSessionMessages, sendChatMessage, forkSession, fetchConversations, fetchConversation, editMessage, deleteMessagesFrom, fetchFileList, fetchFileContent, fetchConfig, type Project, type Message, type Conversation } from "./lib/api";
+  import { fetchProjects, fetchSessions, sendChatMessage, fetchConversations, fetchConversation, editMessage, deleteMessagesFrom, fetchFileList, fetchFileContent, fetchConfig, type Project, type Message, type Conversation } from "./lib/api";
   import ErrorBoundary from "./components/ErrorBoundary.svelte";
   import Settings from "./components/Settings.svelte";
   import Chat from "./components/Chat.svelte";
@@ -175,7 +175,7 @@
     currentSessionId.set(id);
     sidebarOpen.set(false);
     try {
-      const conv = await fetchSessionMessages(id);
+      const conv = await fetchConversation(id);
       currentMessages.set(conv.messages || []);
     } catch { currentMessages.set([]); }
   }
@@ -197,17 +197,6 @@
       const conv = await fetchConversation(id);
       currentMessages.set(conv.messages || []);
     } catch { currentMessages.set([]); }
-  }
-
-  async function forkCurrentSession() {
-    if (!$currentSessionId) return;
-    try {
-      const result = await forkSession($currentSessionId);
-      navigateToSession(result.id);
-      loadProjects();
-    } catch (e) {
-      console.error("Fork failed:", e);
-    }
   }
 
   async function handleSend(text: string) {
@@ -352,8 +341,8 @@
           <div class="proj-group">
             <button class="proj-header" onclick={() => toggleProject(proj.directory)}>
               <span class="arrow" class:open={expandedDirs.has(proj.directory)}>▶</span>
-              <span>📁 {proj.directory.split("/").filter(Boolean).pop()}</span>
-              <span class="count">{proj.session_count || 0}</span>
+              <span>📁 {proj.name}</span>
+              <span class="count">{proj.conversation_count}</span>
             </button>
             {#if expandedDirs.has(proj.directory) && sessionCache[proj.directory]}
               <div class="session-list">
@@ -368,17 +357,8 @@
             {/if}
           </div>
         {/each}
-      {/if}
-
-      {#if conversationsList.length > 0}
-        <div class="sidebar-section-label">Conversations</div>
-        {#each conversationsList as conv (conv.id)}
-          <button class="conv-item" class:active={conv.id === currentConversationId}
-            onclick={() => selectConversation(conv.id)}>
-            <span class="conv-title">{conv.title}</span>
-            <span class="conv-count">{conv.message_count}</span>
-          </button>
-        {/each}
+      {:else}
+        <div class="empty">No conversations yet. Start a new chat!</div>
       {/if}
     </div>
   </aside>

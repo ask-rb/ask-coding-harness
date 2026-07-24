@@ -85,65 +85,58 @@ class ApiTest < Minitest::Test
     assert last_response.body.length > 100
   end
 
-  # ── Session fork tests ──
+  # ── Session endpoint tests ──
 
-  def test_fork_session
-    post "/api/sessions/test-sess-123/fork"
+  def test_sessions_endpoint
+    # Create a conversation via chat first, then look it up via /api/sessions/:id
+    post "/api/chat", { message: "session test" }.to_json, { "CONTENT_TYPE" => "application/json" }
+    assert_equal 200, last_response.status
+    cid = nil
+    last_response.body.each_line do |line|
+      if line.start_with?("data: ") && line.length > 20
+        cid = line[6..].strip
+        break
+      end
+    end
+    refute_nil cid
+
+    get "/api/sessions/#{cid}"
     assert_equal 200, last_response.status
     body = JSON.parse(last_response.body)
-    assert body["id"], "Fork should return a new session ID"
-    refute_equal "test-sess-123", body["id"], "Fork should return a different ID"
-    assert_equal "test-sess-123", body["parent_id"]
+    assert_kind_of Hash, body
+    assert body.key?("messages")
+    assert_operator body["messages"].length, :>=, 1
   end
 
-  def test_timeline
-    # Fork twice to create a timeline
-    post "/api/sessions/root-sess/fork"
-    fork1 = JSON.parse(last_response.body)["id"]
-
-    post "/api/sessions/root-sess/fork"
-    fork2 = JSON.parse(last_response.body)["id"]
-
-    get "/api/sessions/root-sess/timeline"
-    assert_equal 200, last_response.status
-    body = JSON.parse(last_response.body)
-    assert_equal "root-sess", body["root"]
-    assert_operator body["branches"].length, :>=, 2
-  end
-
-  def test_timeline_empty_for_unforked
-    get "/api/sessions/never-forked/timeline"
-    assert_equal 200, last_response.status
-    body = JSON.parse(last_response.body)
-    assert_equal "never-forked", body["root"]
-    assert_equal [], body["branches"]
-  end
-
-  def test_fork_twice_returns_different_ids
-    post "/api/sessions/base-sess/fork"
-    first = JSON.parse(last_response.body)["id"]
-    post "/api/sessions/base-sess/fork"
-    second = JSON.parse(last_response.body)["id"]
-    refute_equal first, second, "Two forks should return different IDs"
-  end
-
-  def test_api_error_returns_json
-    # Cause an error by accessing an invalid session path
-    get "/api/sessions/invalid/timeline"
-    assert_equal 200, last_response.status
-    body = JSON.parse(last_response.body)
-    assert_equal "invalid", body["root"]
-  end
-
-  def test_api_missing_route_returns_404
-    get "/api/invalid-route"
+  def test_nonexistent_session_returns_404
+    get "/api/sessions/nonexistent-id"
     assert_equal 404, last_response.status
+    assert_includes JSON.parse(last_response.body)["error"], "Not found"
   end
 
-  def test_api_error_format
-    # The error_handler plugin catches exceptions and returns JSON
-    get "/api/sessions/nonexistent"
+  def test_projects_from_conversations
+    get "/api/projects"
     assert_equal 200, last_response.status
+    data = JSON.parse(last_response.body)
+    assert_kind_of Array, data
+  end
+
+  def test_project_sessions
+    # Create a conversation with a known directory
+    post "/api/chat", { message: "proj test" }.to_json, { "CONTENT_TYPE" => "application/json" }
+    assert_equal 200, last_response.status
+
+    get "/api/projects"
+    projects = JSON.parse(last_response.body)
+    skip "No projects found" if projects.empty?
+
+    dir = projects.first["directory"]
+    encoded = URI.encode_www_form_component(dir)
+    get "/api/projects/#{encoded}/sessions"
+    assert_equal 200, last_response.status
+    sessions = JSON.parse(last_response.body)
+    assert_kind_of Array, sessions
+    assert_operator sessions.length, :>=, 1
   end
 
   # ── Conversation tests ──

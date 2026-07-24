@@ -130,58 +130,52 @@ module Askoda
           end
           { models: models, defaultModel: default, currentAdapter: ENV.fetch("CODING_PROVIDER", "acp") }.to_json
         end
-	        # GET /api/projects — list projects from adapter
+	        # GET /api/projects — list projects derived from conversation directories
         r.get "projects" do
-          (Askoda._adapter.list_projects || []).to_json
+          db = open_db
+          keys = db.list_range(CONVERSATIONS_KEY, 0, -1)
+          dir_counts = Hash.new(0)
+          keys.each do |id|
+            data = db.get("conv:#{id}")
+            next unless data
+            dir = data["directory"] || data[:directory]
+            dir_counts[dir] += 1 if dir
+          end
+          db.close
+          dir_counts.map { |dir, count| { directory: dir, name: File.basename(dir), conversation_count: count } }.to_json
         end
 
-        # GET /api/projects/:encoded_path/sessions — list sessions for a project dir
+        # GET /api/projects/:encoded_path/sessions — list conversations for a project dir
         r.on "projects", String do |encoded|
           r.get "sessions" do
             dir = URI.decode_www_form_component(encoded)
-            sessions = Askoda._adapter.find_sessions(directory: dir) || []
-            sessions.map! do |s|
-              { id: s[:session_id], title: s[:title], updated_at: s[:updated], message_count: 0 }
+            db = open_db
+            keys = db.list_range(CONVERSATIONS_KEY, 0, -1)
+            conversations = keys.filter_map do |id|
+              data = db.get("conv:#{id}")
+              next unless data
+              conv_dir = data["directory"] || data[:directory]
+              next unless conv_dir == dir
+              { id: data["id"], title: data["title"] || "New conversation", message_count: (data["messages"] || []).length, updated_at: data["updated_at"] }
             end
-            sessions.to_json
+            db.close
+            conversations.to_json
           end
         end
 
-        # GET /api/sessions/:id — get session messages from adapter
+        # GET /api/sessions/:id — get session/conversation messages (reads from askoda.db)
         r.on "sessions", String do |id|
-          # GET /api/sessions/:id/timeline — get fork tree (must be before catch-all)
-          r.get "timeline" do
-            db = open_db
-            forks = db.get("session_forks") || { "tree" => {} }
-            tree = forks["tree"]
-            db.close
-
-            branches = build_branch_tree(id, tree)
-            { root: id, branches: branches }.to_json
-          end
-
-          # GET /api/sessions/:id — session messages (catch-all for /sessions/:id)
           r.get do
-            history = Askoda._adapter.session_history(id) || []
-            messages = history.map { |m| { role: m[:role] == "You" ? "user" : "assistant", content: m[:text], created_at: Time.now.iso8601 } }
-            { id: id, messages: messages }.to_json
-          end
-
-          # POST /api/sessions/:id/fork — fork a session
-          r.post "fork" do
             db = open_db
-            forks = db.get("session_forks") || { "tree" => {} }
-            tree = forks["tree"]
-
-            adapter = Askoda._adapter
-            sid = adapter.create_session("/tmp")
-
-            tree[sid] = { parent: id, forked_at: Time.now.iso8601 }
-            db.set("session_forks", { "tree" => tree })
-            db.list_append("fork_index", sid, max_length: 1000)
+            data = db.get("conv:#{id}")
             db.close
-
-            { id: sid, parent_id: id, forked_at: Time.now.iso8601 }.to_json
+            if data
+              msgs = data["messages"] || data[:messages] || []
+              { id: data["id"], messages: msgs.map { |m| { role: m["role"] || m[:role], content: m["content"] || m[:content] } } }.to_json
+            else
+              response.status = 404
+              { error: "Not found" }.to_json
+            end
           end
         end
 
@@ -192,6 +186,7 @@ module Askoda
           input = body["message"].to_s.strip
           conversation_id = body["conversation_id"]
           model = body["model"] || ENV["ASK_AGENT_MODEL"]
+          directory = body["directory"] || ENV.fetch("ASKODA_WORKSPACE", Dir.pwd)
 
           if input.empty?
             response.status = 400
@@ -201,9 +196,9 @@ module Askoda
           # Load or create conversation
           db = open_db
           conversation = if conversation_id
-            load_conversation(db, conversation_id) || create_conversation(db)
+            load_conversation(db, conversation_id) || create_conversation(db, directory: directory)
           else
-            create_conversation(db)
+            create_conversation(db, directory: directory)
           end
 
           # Append user message
@@ -221,7 +216,8 @@ module Askoda
 
             begin
               adapter = Askoda._adapter
-              sid = adapter.create_session("/tmp")
+              workspace = conversation[:directory] || Dir.pwd
+              sid = adapter.create_session(workspace)
 
               out << "event: turn.started\ndata: {}\n\n"
 
@@ -368,30 +364,18 @@ module Askoda
 
     private
 
-    def build_branch_tree(root_id, tree)
-      # Find all children of root_id (direct and indirect)
-      children = tree.select { |_, v| v["parent"] == root_id }.map { |k, _| k }
-      children.map do |child_id|
-        {
-          id: child_id,
-          parent: root_id,
-          forked_at: tree[child_id]["forked_at"],
-          branches: build_branch_tree(child_id, tree)
-        }
-      end
-    end
-
     def open_db
       dir = File.dirname(DB_PATH)
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
       Ask::State::Providers::SQLite.new(path: DB_PATH)
     end
 
-    def create_conversation(db)
+    def create_conversation(db, directory: nil)
       id = SecureRandom.uuid
       {
         id: id,
         title: "New conversation",
+        directory: directory,
         messages: [],
         created_at: Time.now.iso8601,
         updated_at: Time.now.iso8601
@@ -427,6 +411,7 @@ module Askoda
       {
         id: data["id"],
         title: data["title"],
+        directory: data["directory"],
         message_count: data["messages"]&.length || 0,
         created_at: data["created_at"],
         updated_at: data["updated_at"]

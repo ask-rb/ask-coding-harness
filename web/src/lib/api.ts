@@ -2,13 +2,14 @@ const BASE = "";
 
 export interface Project {
   directory: string;
-  session_count: number;
+  name: string;
+  conversation_count: number;
 }
 
-export interface Session {
+export interface ProjectSession {
   id: string;
   title: string;
-  updated_at?: number;
+  updated_at?: string;
   message_count?: number;
 }
 
@@ -21,6 +22,7 @@ export interface Message {
 export interface Conversation {
   id: string;
   title: string;
+  directory?: string;
   messages: Message[];
   created_at?: string;
   updated_at?: string;
@@ -55,16 +57,10 @@ export async function fetchProjects(): Promise<Project[]> {
   return Array.isArray(data) ? data : [];
 }
 
-export async function fetchSessions(projectDir: string): Promise<Session[]> {
+export async function fetchSessions(projectDir: string): Promise<ProjectSession[]> {
   const encoded = encodeURIComponent(projectDir);
   const res = await fetch(`${BASE}/api/projects/${encoded}/sessions`);
   if (!res.ok) throw new Error(`Failed to fetch sessions: ${res.status}`);
-  return await res.json();
-}
-
-export async function fetchSessionMessages(id: string): Promise<Conversation> {
-  const res = await fetch(`${BASE}/api/sessions/${id}`);
-  if (!res.ok) throw new Error(`Failed to fetch session: ${res.status}`);
   return await res.json();
 }
 
@@ -110,16 +106,11 @@ export async function fetchConfig(): Promise<ConfigResponse> {
   return await res.json();
 }
 
-export async function forkSession(sessionId: string): Promise<{ id: string; parent_id: string }> {
-  const res = await fetch(`${BASE}/api/sessions/${sessionId}/fork`, { method: "POST" });
-  if (!res.ok) throw new Error(`Failed to fork session: ${res.status}`);
-  return await res.json();
-}
-
 export function sendChatMessage(
   message: string,
   conversationId?: string,
   model?: string,
+  directory?: string,
   onEvent?: (event: { type: string; data: any }) => void,
   onError?: (error: string) => void,
   onDone?: () => void
@@ -135,6 +126,7 @@ export function sendChatMessage(
           message,
           conversation_id: conversationId,
           model: model || undefined,
+          directory: directory || undefined,
         }),
         signal: controller.signal,
       });
