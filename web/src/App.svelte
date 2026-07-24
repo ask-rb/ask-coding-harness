@@ -12,6 +12,7 @@
   let projectsList: Project[] = [];
   let conversationsList: Conversation[] = [];
   let currentConversationId: string | null = null;
+  let selectedDirectory: string | null = null;
   let attachedFiles: string[] = [];
   let fileList: string[] = [];
   let abortController: AbortController | null = null;
@@ -184,6 +185,17 @@
     history.pushState(null, "", "/");
     currentSessionId.set(null);
     currentConversationId = null;
+    selectedDirectory = null;
+    currentMessages.set([]);
+    streamingText.set("");
+    sidebarOpen.set(false);
+  }
+
+  function startProjectConversation(dir: string) {
+    history.pushState(null, "", "/");
+    currentSessionId.set(null);
+    currentConversationId = null;
+    selectedDirectory = dir;
     currentMessages.set([]);
     streamingText.set("");
     sidebarOpen.set(false);
@@ -225,8 +237,10 @@
     toolCalls.set([]);
 
     let cid = currentConversationId || undefined;
+    let dir = selectedDirectory || undefined;
+    selectedDirectory = null;
     abortController = sendChatMessage(
-      text, cid, $currentModel,
+      text, cid, $currentModel, dir,
       (event) => {
         if (event.type === "meta" && typeof event.data === "string" && event.data.length > 10) {
           currentConversationId = event.data;
@@ -344,6 +358,7 @@
               <span>📁 {proj.name}</span>
               <span class="count">{proj.conversation_count}</span>
             </button>
+            <button class="proj-new-btn" onclick={() => startProjectConversation(proj.directory)} title="New conversation in this project">✚</button>
             {#if expandedDirs.has(proj.directory) && sessionCache[proj.directory]}
               <div class="session-list">
                 {#each sessionCache[proj.directory] as sess}
@@ -371,6 +386,9 @@
     {:else}
       {#if $currentMessages.length > 0 || $streamingText}
         <div class="session-bar">
+          {#if selectedDirectory}
+            <span class="dir-badge">📁 {selectedDirectory.split("/").filter(Boolean).pop()}</span>
+          {/if}
           <div class="model-picker">
             <select class="model-select" bind:value={$currentModel}>
               {#each $availableModels as model}
@@ -384,7 +402,7 @@
         </div>
       {/if}
       {#if $currentMessages.length === 0 && !$streamingText}
-        <Welcome {newChat} onSend={handleSend} />
+        <Welcome {newChat} projects={projectsList} onStartProject={startProjectConversation} />
       {:else}
         <Chat messages={$currentMessages} streamingText={$streamingText} isStreaming={$streaming} toolCalls={$toolCalls} onSend={handleSend} onCancel={cancelStream} {onEdit} {onDelete} {onRetry} {attachedFiles} {fileList} onToggleFile={toggleFileAttachment} onClearFiles={clearAttachments} />
       {/if}
@@ -447,13 +465,21 @@
   .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--muted); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; margin-right: 6px; vertical-align: middle; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .proj-group { margin-bottom: 4px; }
+  .proj-group { margin-bottom: 4px; display: flex; align-items: center; }
   .proj-header {
-    width: 100%; padding: 8px 10px; border-radius: 6px; cursor: pointer;
+    flex: 1; padding: 8px 10px; border-radius: 6px; cursor: pointer;
     display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500;
     color: var(--muted); background: none; border: none; text-align: left;
   }
   .proj-header:hover { background: var(--surface2); color: var(--text); }
+  .proj-new-btn {
+    width: 24px; height: 24px; border-radius: 4px; border: none;
+    background: none; color: var(--muted); cursor: pointer; font-size: 12px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    margin-right: 6px; opacity: 0; transition: opacity .1s;
+  }
+  .proj-group:hover .proj-new-btn { opacity: 1; }
+  .proj-new-btn:hover { background: var(--accent); color: #fff; }
   .arrow { font-size: 10px; transition: transform .15s; width: 14px; text-align: center; flex-shrink: 0; }
   .arrow.open { transform: rotate(90deg); }
   .count { font-size: 11px; color: var(--muted); margin-left: auto; }
@@ -482,6 +508,11 @@
 
   .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
   .session-bar { display: flex; align-items: center; padding: 6px 16px; border-bottom: 1px solid var(--border); background: var(--surface); gap: 8px; }
+  .dir-badge {
+    font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 4px; background: var(--surface2); border: 1px solid var(--border);
+    white-space: nowrap;
+  }
   .fork-btn { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface2); color: var(--muted); cursor: pointer; font-size: 12px; }
   .fork-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
   .model-picker { margin-right: auto; }
