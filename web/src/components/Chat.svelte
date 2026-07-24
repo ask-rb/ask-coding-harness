@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import Message from "./Message.svelte";
+  import DiffViewer from "./DiffViewer.svelte";
   import type { Message as Msg } from "../lib/api";
 
   export let messages: Msg[] = [];
@@ -50,6 +51,11 @@
           {/if}
         </div>
       </div>
+      {#if tc.input && tc.input.file_path && tc.input.old_string !== undefined}
+        <div class="tool-diff">
+          <DiffViewer oldString={tc.input.old_string} newString={tc.input.new_string || ""} filePath={tc.input.file_path} />
+        </div>
+      {/if}
     {/each}
     {#if isStreaming && streamingText}
       <div class="msg assistant streaming">
@@ -101,6 +107,7 @@
   .tool-icon { font-size: 14px; }
   .tool-name { font-size: 13px; font-weight: 500; text-transform: capitalize; }
   .tool-status { font-size: 11px; color: var(--muted); margin-left: 8px; }
+  .tool-diff { margin: 0 16px 8px 16px; max-width: 90%; }
 
   .input-area { border-top: 1px solid var(--border); padding: 12px 16px; background: var(--surface); }
   .input-row { display: flex; gap: 8px; align-items: flex-end; max-width: 800px; margin: 0 auto; }

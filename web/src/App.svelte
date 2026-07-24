@@ -179,13 +179,13 @@
           streamingText.update((t) => t + event.data.delta);
         }
         if (event.type === "data" && event.data.toolUse) {
-          const tc: ToolCall = { id: ++toolIdCounter, name: event.data.toolUse, status: "running" };
+          const tc: ToolCall = { id: ++toolIdCounter, name: event.data.toolUse, status: "running", input: event.data.input };
           toolCalls.update((calls) => [...calls, tc]);
         }
         if (event.type === "data" && event.data.toolResult) {
           toolCalls.update((calls) => {
             const last = calls[calls.length - 1];
-            if (last) { last.status = "completed"; last.output = event.data.toolResult; }
+            if (last) { last.status = "completed"; last.output = event.data.toolResult; last.input = event.data.input; }
             return calls;
           });
         }
