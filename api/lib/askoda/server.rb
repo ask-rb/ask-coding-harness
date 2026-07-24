@@ -33,7 +33,7 @@ module Askoda
       "Access-Control-Allow-Methods" => "GET, POST, DELETE, OPTIONS",
       "Access-Control-Allow-Headers" => "Content-Type"
     }
-    plugin :public, root: File.join(File.dirname(__FILE__), "../../public")
+    plugin :public, root: File.expand_path("../../../public", File.dirname(__FILE__))
     plugin :streaming
 
     # Load .env if present
@@ -200,7 +200,7 @@ module Askoda
       r.public
       # Serve index.html for unmatched GET requests (SPA support)
       r.get do
-        public_dir = File.join(File.dirname(__FILE__), "../../public")
+        public_dir = File.expand_path("../../../public", File.dirname(__FILE__))
         file = File.join(public_dir, "index.html")
         if File.exist?(file)
           response["Content-Type"] = "text/html"

@@ -1,0 +1,26 @@
+import { writable, derived } from "svelte/store";
+import type { Project, Message } from "./api";
+
+export const theme = writable<"dark" | "light">("dark");
+export const sidebarOpen = writable(false);
+export const isMobile = writable(false);
+
+export const projects = writable<Project[]>([]);
+export const currentSessionId = writable<string | null>(null);
+export const currentMessages = writable<Message[]>([]);
+export const streaming = writable(false);
+export const streamingText = writable("");
+
+export const isLoading = writable(false);
+
+export const chatTitle = derived(currentSessionId, ($id) =>
+  $id ? `Session ${$id.slice(0, 8)}` : "Askoda"
+);
+
+export function toggleTheme() {
+  theme.update((t) => (t === "dark" ? "light" : "dark"));
+}
+
+export function openSidebar() {
+  if (isMobile) sidebarOpen.set(true);
+}

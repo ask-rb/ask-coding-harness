@@ -8,8 +8,11 @@ echo ""
 
 cp -n .env.example .env 2>/dev/null && echo "✅ Created .env — edit it with your API key" || echo "⏭️  .env already exists"
 
-echo "📦 Installing dependencies..."
+echo "📦 Installing Ruby dependencies..."
 bundle install
+
+echo "📦 Installing frontend dependencies..."
+(cd web && npm install --silent 2>/dev/null)
 
 echo ""
 echo "✅ Setup complete! Run ./bin/dev to start."

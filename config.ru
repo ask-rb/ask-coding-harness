@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "lib/askoda/server"
+require_relative "api/lib/askoda/server"
 
 # Initialize the adapter once (shared across all requests)
 adapter = Askoda::Server.build_provider_adapter

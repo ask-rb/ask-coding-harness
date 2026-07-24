@@ -1,0 +1,45 @@
+:root {
+  --bg: #0b0b0c;
+  --surface: #111216;
+  --surface2: #1a1b22;
+  --border: #23242a;
+  --text: #eaeaea;
+  --muted: #9aa0a6;
+  --accent: #2b6ef6;
+  --accent-hover: #1a5de0;
+  --user-bg: #2b6ef6;
+  --user-text: #fff;
+  --code-bg: #0d0e14;
+  --scrollbar: #2a2b32;
+  --danger: #ef4444;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+}
+
+body.light {
+  --bg: #f6f8fb;
+  --surface: #ffffff;
+  --surface2: #eef1f6;
+  --border: #d5d9e2;
+  --text: #0b0b0c;
+  --muted: #6b7280;
+  --accent: #2b6ef6;
+  --accent-hover: #1a5de0;
+  --user-bg: #2b6ef6;
+  --user-text: #fff;
+  --code-bg: #f0f2f6;
+  --scrollbar: #d5d9e2;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #app { height: 100%; width: 100%; overflow: hidden; }
+button { font-family: inherit; font-size: inherit; }
+textarea { font-family: inherit; }
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 3px; }
