@@ -23,6 +23,7 @@ export interface Conversation {
   id: string;
   title: string;
   directory?: string;
+  archived?: boolean;
   messages: Message[];
   created_at?: string;
   updated_at?: string;
@@ -91,6 +92,24 @@ export async function deleteMessagesFrom(conversationId: string, index: number):
     method: "DELETE",
   });
   if (!res.ok) throw new Error(`Failed to delete messages: ${res.status}`);
+  return await res.json();
+}
+
+export async function renameConversation(conversationId: string, title: string): Promise<{ id: string; title: string }> {
+  const res = await fetch(`${BASE}/api/conversations/${conversationId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+  if (!res.ok) throw new Error(`Failed to rename conversation: ${res.status}`);
+  return await res.json();
+}
+
+export async function archiveConversation(conversationId: string): Promise<{ id: string; archived: boolean }> {
+  const res = await fetch(`${BASE}/api/conversations/${conversationId}/archive`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(`Failed to archive conversation: ${res.status}`);
   return await res.json();
 }
 

@@ -130,7 +130,7 @@ module Askoda
           end
           { models: models, defaultModel: default, currentAdapter: ENV.fetch("CODING_PROVIDER", "acp") }.to_json
         end
-	        # GET /api/projects — list projects derived from conversation directories
+	        # GET /api/projects — list projects derived from active conversation directories
         r.get "projects" do
           db = open_db
           keys = db.list_range(CONVERSATIONS_KEY, 0, -1)
@@ -138,6 +138,7 @@ module Askoda
           keys.each do |id|
             data = db.get("conv:#{id}")
             next unless data
+            next if data["archived"] == true
             dir = data["directory"] || data[:directory]
             dir_counts[dir] += 1 if dir
           end
@@ -252,11 +253,15 @@ module Askoda
           end
         end
 
-        # GET /api/conversations
+        # GET /api/conversations — list active conversations (omit archived by default)
         r.get "conversations" do
+          show_archived = r.params["archived"] == "true"
           db = open_db
           keys = db.list_range(CONVERSATIONS_KEY, 0, -1)
-          conversations = keys.filter_map { |id| load_conversation_summary(db, id) }
+          conversations = keys.filter_map { |id|
+            summary = load_conversation_summary(db, id)
+            summary if summary && (show_archived || !summary[:archived])
+          }
           db.close
           conversations.to_json
         end
@@ -276,6 +281,28 @@ module Askoda
             end
           end
 
+          # PATCH /api/conversations/:id — rename conversation title (only when path fully consumed)
+          r.is method: :patch do
+            body = JSON.parse(r.body.read)
+            new_title = body["title"].to_s.strip
+            if new_title.empty?
+              response.status = 400
+              next { error: "title is required" }.to_json
+            end
+            db = open_db
+            conv = load_conversation(db, id)
+            unless conv
+              db.close
+              response.status = 404
+              next { error: "Conversation not found" }.to_json
+            end
+            conv[:title] = new_title
+            save_conversation(db, conv)
+            index_conversation(db, conv)
+            db.close
+            { id: id, title: new_title }.to_json
+          end
+
           # DELETE /api/conversations/:id (only when path is fully consumed)
           r.is method: :delete do
             db = open_db
@@ -283,6 +310,21 @@ module Askoda
             db.list_remove(CONVERSATIONS_KEY, id)
             db.close
             { deleted: true }.to_json
+          end
+
+          # POST /api/conversations/:id/archive — toggle archive status
+          r.post "archive" do
+            db = open_db
+            conv = load_conversation(db, id)
+            unless conv
+              db.close
+              response.status = 404
+              next { error: "Conversation not found" }.to_json
+            end
+            conv[:archived] = !conv[:archived]
+            save_conversation(db, conv)
+            db.close
+            { id: id, archived: conv[:archived] }.to_json
           end
 
           # /api/conversations/:id/messages/:index
@@ -376,6 +418,7 @@ module Askoda
         id: id,
         title: "New conversation",
         directory: directory,
+        archived: false,
         messages: [],
         created_at: Time.now.iso8601,
         updated_at: Time.now.iso8601
@@ -384,7 +427,7 @@ module Askoda
 
     def save_conversation(db, conv)
       conv[:updated_at] = Time.now.iso8601
-      conv[:title] = guess_title(conv[:messages]) if conv[:title] == "New conversation" && conv[:messages].length >= 2
+      conv[:title] = guess_title(conv[:messages]) if conv[:title] == "New conversation" && conv[:messages].length >= 1
       db.set("conv:#{conv[:id]}", conv)
     end
 
@@ -412,6 +455,7 @@ module Askoda
         id: data["id"],
         title: data["title"],
         directory: data["directory"],
+        archived: data["archived"] == true,
         message_count: data["messages"]&.length || 0,
         created_at: data["created_at"],
         updated_at: data["updated_at"]

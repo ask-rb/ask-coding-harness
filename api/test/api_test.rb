@@ -324,4 +324,63 @@ class ApiTest < Minitest::Test
     assert_kind_of String, data["defaultModel"]
     assert_kind_of String, data["currentAdapter"]
   end
+
+  # ── Rename & Archive tests ──
+
+  def test_rename_conversation
+    cid = create_test_conversation
+    refute_nil cid
+
+    patch "/api/conversations/#{cid}", { title: "My Renamed Chat" }.to_json, { "CONTENT_TYPE" => "application/json" }
+    assert_equal 200, last_response.status
+    body = JSON.parse(last_response.body)
+    assert_equal "My Renamed Chat", body["title"]
+
+    get "/api/conversations/#{cid}"
+    assert_equal "My Renamed Chat", JSON.parse(last_response.body)["title"]
+  end
+
+  def test_rename_empty_title_returns_400
+    cid = create_test_conversation
+    refute_nil cid
+
+    patch "/api/conversations/#{cid}", { title: "" }.to_json, { "CONTENT_TYPE" => "application/json" }
+    assert_equal 400, last_response.status
+  end
+
+  def test_archive_conversation
+    cid = create_test_conversation
+    refute_nil cid
+
+    post "/api/conversations/#{cid}/archive"
+    assert_equal 200, last_response.status
+    body = JSON.parse(last_response.body)
+    assert_equal true, body["archived"]
+
+    # Should be hidden from default list
+    get "/api/conversations"
+    ids = JSON.parse(last_response.body).map { |c| c["id"] }
+    refute_includes ids, cid, "Archived conversation should be hidden"
+  end
+
+  def test_archive_toggle
+    cid = create_test_conversation
+    refute_nil cid
+
+    post "/api/conversations/#{cid}/archive"
+    assert_equal true, JSON.parse(last_response.body)["archived"]
+
+    post "/api/conversations/#{cid}/archive"
+    assert_equal false, JSON.parse(last_response.body)["archived"]
+  end
+
+  def test_archived_shown_with_query_param
+    cid = create_test_conversation
+    refute_nil cid
+    post "/api/conversations/#{cid}/archive"
+
+    get "/api/conversations?archived=true"
+    ids = JSON.parse(last_response.body).map { |c| c["id"] }
+    assert_includes ids, cid, "Archived conversation should show with ?archived=true"
+  end
 end

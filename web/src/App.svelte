@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { theme, sidebarOpen, isMobile, projects, currentSessionId, currentMessages, streaming, streamingText, isLoading, toggleTheme, toolCalls, type ToolCall, globalError, connectionError, clearErrors, currentModel, availableModels } from "./lib/stores";
-  import { fetchProjects, fetchSessions, sendChatMessage, fetchConversations, fetchConversation, editMessage, deleteMessagesFrom, fetchFileList, fetchFileContent, fetchConfig, type Project, type Message, type Conversation } from "./lib/api";
+  import { fetchProjects, fetchSessions, sendChatMessage, fetchConversations, fetchConversation, editMessage, deleteMessagesFrom, renameConversation, archiveConversation, fetchFileList, fetchFileContent, fetchConfig, type Project, type Message, type Conversation } from "./lib/api";
   import ErrorBoundary from "./components/ErrorBoundary.svelte";
   import Settings from "./components/Settings.svelte";
   import Chat from "./components/Chat.svelte";
@@ -11,8 +11,11 @@
   let sessionCache: Record<string, any[]> = {};
   let projectsList: Project[] = [];
   let conversationsList: Conversation[] = [];
+  let archivedConversations: Conversation[] = [];
   let currentConversationId: string | null = null;
   let selectedDirectory: string | null = null;
+  let renamingConvId: string | null = null;
+  let renamingTitle = "";
   let attachedFiles: string[] = [];
   let fileList: string[] = [];
   let abortController: AbortController | null = null;
@@ -137,6 +140,10 @@
   async function loadConversations() {
     try { conversationsList = await fetchConversations(); }
     catch { conversationsList = []; }
+    try {
+      const res = await fetch("/api/conversations?archived=true");
+      if (res.ok) archivedConversations = await res.json();
+    } catch { archivedConversations = []; }
   }
 
   async function loadFileList() {
@@ -333,6 +340,41 @@
     }
   }
 
+  function startRename(convId: string, currentTitle: string) {
+    renamingConvId = convId;
+    renamingTitle = currentTitle;
+  }
+
+  async function saveRename(convId: string) {
+    if (!renamingTitle.trim()) { cancelRename(); return; }
+    try {
+      await renameConversation(convId, renamingTitle.trim());
+      renamingConvId = null;
+      renamingTitle = "";
+      loadConversations();
+    } catch (e) {
+      console.error("Rename failed:", e);
+    }
+  }
+
+  function cancelRename() {
+    renamingConvId = null;
+    renamingTitle = "";
+  }
+
+  async function handleArchive(convId: string) {
+    try {
+      await archiveConversation(convId);
+      // If currently viewing this conversation, clear it
+      if (currentConversationId === convId) {
+        newChat();
+      }
+      loadConversations();
+    } catch (e) {
+      console.error("Archive failed:", e);
+    }
+  }
+
   $: filteredCommands = [
     { id: "new", label: "New conversation", action: newChat },
     { id: "projects", label: "Reload projects", action: loadProjects },
@@ -372,11 +414,35 @@
             {#if expandedDirs.has(proj.directory) && sessionCache[proj.directory]}
               <div class="session-list">
                 {#each sessionCache[proj.directory] as sess}
-                  <button class="sess-item" class:active={sess.id === $currentSessionId}
-                    onclick={() => navigateToSession(sess.id)}>
-                    <div class="title">{sess.title || "Untitled"}</div>
-                    <div class="meta">{sess.message_count || 0} msgs</div>
-                  </button>
+                  {#if renamingConvId === sess.id}
+                    <div class="sess-item rename-mode">
+                      <input
+                        class="rename-input"
+                        type="text"
+                        bind:value={renamingTitle}
+                        onkeydown={(e) => {
+                          if (e.key === "Enter") saveRename(sess.id);
+                          if (e.key === "Escape") cancelRename();
+                        }}
+                        autofocus
+                      />
+                      <button class="rename-save" onclick={() => saveRename(sess.id)} title="Save">✓</button>
+                      <button class="rename-cancel" onclick={cancelRename} title="Cancel">✕</button>
+                    </div>
+                  {:else}
+                    <div class="sess-item-wrapper">
+                      <button class="sess-item" class:active={sess.id === $currentSessionId}
+                        ondblclick={() => startRename(sess.id, sess.title || "Untitled")}
+                        onclick={() => navigateToSession(sess.id)}>
+                        <div class="title">{sess.title || "Untitled"}</div>
+                        <div class="meta">{sess.message_count || 0} msgs</div>
+                      </button>
+                      <div class="sess-actions">
+                        <button class="sess-action-btn" onclick={() => startRename(sess.id, sess.title || "Untitled")} title="Rename">✏️</button>
+                        <button class="sess-action-btn" onclick={() => handleArchive(sess.id)} title="Archive">📦</button>
+                      </div>
+                    </div>
+                  {/if}
                 {/each}
               </div>
             {/if}
@@ -384,6 +450,22 @@
         {/each}
       {:else}
         <div class="empty">No conversations yet. Start a new chat!</div>
+      {/if}
+
+      {#if archivedConversations.length > 0}
+        <div class="sidebar-section-label">Archived</div>
+        {#each archivedConversations as conv (conv.id)}
+          <div class="sess-item-wrapper">
+            <button class="sess-item archived-item"
+              onclick={() => navigateToSession(conv.id)}>
+              <div class="title">📦 {conv.title || "Untitled"}</div>
+              <div class="meta">{conv.message_count || 0} msgs</div>
+            </button>
+            <div class="sess-actions">
+              <button class="sess-action-btn" onclick={() => handleArchive(conv.id)} title="Restore">↩️</button>
+            </div>
+          </div>
+        {/each}
       {/if}
     </div>
   </aside>
@@ -502,6 +584,33 @@
   .sess-item.active { background: var(--surface2); border-color: var(--border); }
   .sess-item .title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sess-item .meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .sess-item-wrapper { display: flex; align-items: center; gap: 2px; }
+  .sess-item-wrapper .sess-item { flex: 1; min-width: 0; }
+  .sess-actions { display: none; gap: 2px; flex-shrink: 0; padding-right: 4px; }
+  .sess-item-wrapper:hover .sess-actions { display: flex; }
+  .sess-action-btn {
+    background: none; border: none; cursor: pointer; font-size: 11px; padding: 2px 4px;
+    border-radius: 3px; color: var(--muted); line-height: 1;
+  }
+  .sess-action-btn:hover { background: var(--accent); color: #fff; }
+
+  .sess-item.rename-mode {
+    display: flex; align-items: center; gap: 4px; padding: 4px 6px;
+  }
+  .rename-input {
+    flex: 1; background: var(--surface2); color: var(--text); border: 1px solid var(--accent);
+    border-radius: 4px; padding: 4px 6px; font-size: 13px; outline: none; min-width: 0;
+  }
+  .rename-save, .rename-cancel {
+    background: none; border: 1px solid var(--border); border-radius: 3px;
+    cursor: pointer; font-size: 11px; padding: 2px 6px; line-height: 1.4;
+  }
+  .rename-save { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .rename-cancel { background: var(--surface); color: var(--text); }
+
+  .archived-item { opacity: .6; }
+  .archived-item:hover { opacity: 1; }
 
   .sidebar-section-label {
     padding: 12px 10px 4px; font-size: 11px; font-weight: 600; text-transform: uppercase;
