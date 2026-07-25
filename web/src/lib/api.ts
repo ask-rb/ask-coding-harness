@@ -113,14 +113,6 @@ export async function archiveConversation(conversationId: string): Promise<{ id:
   return await res.json();
 }
 
-export async function deleteConversation(conversationId: string): Promise<{ deleted: boolean }> {
-  const res = await fetch(`${BASE}/api/conversations/${conversationId}`, {
-    method: "DELETE",
-  });
-  if (!res.ok) throw new Error(`Failed to delete conversation: ${res.status}`);
-  return await res.json();
-}
-
 export interface ConfigResponse {
   models: string[];
   defaultModel: string;

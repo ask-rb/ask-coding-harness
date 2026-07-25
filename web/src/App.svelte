@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { theme, sidebarOpen, isMobile, projects, currentSessionId, currentMessages, streaming, streamingText, isLoading, toggleTheme, toolCalls, type ToolCall, globalError, connectionError, clearErrors, currentModel, availableModels } from "./lib/stores";
-  import { fetchProjects, fetchSessions, sendChatMessage, fetchConversations, fetchConversation, editMessage, deleteMessagesFrom, renameConversation, archiveConversation, deleteConversation, fetchFileList, fetchFileContent, fetchConfig, type Project, type Message, type Conversation } from "./lib/api";
+  import { fetchProjects, fetchSessions, sendChatMessage, fetchConversations, fetchConversation, editMessage, deleteMessagesFrom, renameConversation, archiveConversation, fetchFileList, fetchFileContent, fetchConfig, type Project, type Message, type Conversation } from "./lib/api";
   import ErrorBoundary from "./components/ErrorBoundary.svelte";
   import Settings from "./components/Settings.svelte";
   import Chat from "./components/Chat.svelte";

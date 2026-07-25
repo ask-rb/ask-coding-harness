@@ -111,17 +111,6 @@ describe("API functions", () => {
     expect(result[0].conversation_count).toBe(5);
   });
 
-  it("deleteConversation calls DELETE /api/conversations/:id", async () => {
-    const mockResponse = { ok: true, json: () => Promise.resolve({ deleted: true }) };
-    (fetch as any).mockResolvedValue(mockResponse);
-
-    const { deleteConversation } = await import("../lib/api");
-    const result = await deleteConversation("conv-1");
-
-    expect(fetch).toHaveBeenCalledWith("/api/conversations/conv-1", { method: "DELETE" });
-    expect(result.deleted).toBe(true);
-  });
-
   it("throws on non-ok response", async () => {
     const mockResponse = { ok: false, status: 404, statusText: "Not Found" };
     (fetch as any).mockResolvedValue(mockResponse);
