@@ -7,6 +7,7 @@
   export let onEdit: (index: number, content: string) => void = () => {};
   export let onDelete: (index: number) => void = () => {};
   export let onRetry: (index: number) => void = () => {};
+  export let searchTerm: string = "";
 
   let markedFn: any = null;
   let rendered = "";
@@ -31,6 +32,16 @@
   }
 
   $: isError = msg.role === "assistant" && msg.content.startsWith("Error:");
+
+  function highlightText(html: string, term: string): string {
+    if (!term) return html;
+    try {
+      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return html.replace(new RegExp(`(${escaped})`, "gi"), "<mark class=\"search-highlight\">$1</mark>");
+    } catch { return html; }
+  }
+
+  $: displayHtml = searchTerm ? highlightText(rendered, searchTerm) : rendered;
 
   function copyButtons(node: HTMLElement) {
     function addButtons() {
@@ -116,7 +127,7 @@
     {:else}
         {#if rendered}
           <div class="markdown" use:copyButtons>
-            {@html rendered}
+            {@html displayHtml}
           </div>
       {:else}
         <div class="plain">{msg.content}</div>
@@ -197,4 +208,7 @@
   }
   .edit-cancel:hover, .delete-no:hover { background: var(--surface2); }
   .delete-confirm { font-size: 13px; color: var(--muted); }
+  :global(mark.search-highlight) {
+    background: var(--accent); color: #fff; border-radius: 2px; padding: 0 2px;
+  }
 </style>

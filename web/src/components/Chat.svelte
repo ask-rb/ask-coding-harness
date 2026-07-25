@@ -43,6 +43,56 @@
   let showFilePanel = false;
   let fileSearch = "";
   let fuse: Fuse<string> | null = null;
+  let showSearch = false;
+  let searchTerm = "";
+  let currentMatchIndex = 0;
+
+  $: matchingIndices = searchTerm
+    ? messages.reduce<number[]>((acc, msg, i) => {
+        if (msg.content.toLowerCase().includes(searchTerm.toLowerCase())) acc.push(i);
+        return acc;
+      }, [])
+    : [];
+
+  $: totalMatches = matchingIndices.length;
+
+  $: if (showSearch && searchTerm && currentMatchIndex >= totalMatches) {
+    currentMatchIndex = totalMatches > 0 ? 0 : 0;
+  }
+
+  let matchEls: HTMLElement[] = [];
+  $: if (messagesEl && matchingIndices.length > 0) {
+    matchEls = matchingIndices
+      .map((i) => messagesEl.querySelector(`[data-msg-index="${i}"]`))
+      .filter(Boolean) as HTMLElement[];
+  }
+
+  function scrollToCurrentMatch() {
+    const el = matchEls[currentMatchIndex];
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  $: if (showSearch && searchTerm) {
+    scrollToCurrentMatch();
+  }
+
+  function nextMatch() {
+    if (totalMatches === 0) return;
+    currentMatchIndex = (currentMatchIndex + 1) % totalMatches;
+    scrollToCurrentMatch();
+  }
+
+  function prevMatch() {
+    if (totalMatches === 0) return;
+    currentMatchIndex = (currentMatchIndex - 1 + totalMatches) % totalMatches;
+    scrollToCurrentMatch();
+  }
+
+  function closeSearch() {
+    showSearch = false;
+    searchTerm = "";
+    currentMatchIndex = 0;
+  }
 
   onMount(() => {
     const focusHandler = () => inputEl?.focus();
@@ -63,12 +113,28 @@
   }
 
   function handleKey(e: KeyboardEvent) {
-    if (e.key === "Enter" && !e.shiftKey && !showFilePanel) {
+    if ((e.metaKey || e.ctrlKey) && e.key === "f" && !showFilePanel) {
+      e.preventDefault();
+      showSearch = true;
+      // Focus search input after render
+      requestAnimationFrame(() => {
+        const input = document.querySelector(".search-input") as HTMLInputElement;
+        input?.focus();
+        input?.select();
+      });
+      return;
+    }
+    if (e.key === "Enter" && !e.shiftKey && !showFilePanel && !showSearch) {
       e.preventDefault();
       send();
     }
     if (e.key === "Escape") {
+      if (showSearch) { closeSearch(); return; }
       showFilePanel = false;
+    }
+    if (showSearch && e.key === "Enter") {
+      e.preventDefault();
+      nextMatch();
     }
   }
 
@@ -89,9 +155,32 @@
 </script>
 
 <div class="chat-container">
+  {#if showSearch}
+    <div class="search-bar">
+      <span class="search-icon">🔍</span>
+      <input
+        class="search-input"
+        type="text"
+        placeholder="Search messages..."
+        bind:value={searchTerm}
+        onkeydown={(e) => {
+          if (e.key === "Escape") closeSearch();
+          if (e.key === "Enter") { e.preventDefault(); nextMatch(); }
+        }}
+      />
+      {#if searchTerm}
+        <span class="search-count">{totalMatches > 0 ? `${currentMatchIndex + 1} of ${totalMatches}` : "No matches"}</span>
+        <button class="search-nav" onclick={prevMatch} disabled={totalMatches === 0} title="Previous match">▲</button>
+        <button class="search-nav" onclick={nextMatch} disabled={totalMatches === 0} title="Next match">▼</button>
+      {/if}
+      <button class="search-close" onclick={closeSearch}>✕</button>
+    </div>
+  {/if}
   <div class="messages" bind:this={messagesEl}>
     {#each messages as msg, i (i)}
-      <Message {msg} index={i} {onEdit} {onDelete} {onRetry} />
+      <div data-msg-index={i}>
+        <Message {msg} index={i} {onEdit} {onDelete} {onRetry} {searchTerm} />
+      </div>
     {/each}
     {#each toolCalls as tc}
       <div class="tool-call">
@@ -199,6 +288,30 @@
 
 <style>
   .chat-container { display: flex; flex-direction: column; height: 100%; position: relative; }
+
+  .search-bar {
+    display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+    border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0;
+  }
+  .search-icon { font-size: 14px; color: var(--muted); flex-shrink: 0; }
+  .search-input {
+    flex: 1; background: var(--surface2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 10px; font-size: 13px; outline: none; min-width: 0;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-count { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .search-nav {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 4px;
+    color: var(--text); cursor: pointer; font-size: 10px; width: 24px; height: 24px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .search-nav:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .search-nav:disabled { opacity: .3; cursor: default; }
+  .search-nav:disabled:hover { background: var(--surface2); color: var(--text); border-color: var(--border); }
+  .search-close {
+    background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 2px;
+  }
+  .search-close:hover { color: var(--text); }
   .messages { flex: 1; overflow-y: auto; padding: 16px 0; }
   .msg { padding: 10px 16px; font-size: 14px; line-height: 1.6; word-wrap: break-word; }
   .msg.user { background: var(--user-bg); color: var(--user-text); margin: 0 16px 8px auto; max-width: 80%; border-radius: 12px 12px 4px 12px; }
