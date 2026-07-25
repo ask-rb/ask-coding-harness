@@ -162,22 +162,23 @@
   }
 
   /* ── Hero ── */
-  .hero { text-align: center; margin-bottom: 32px; }
+  .hero { text-align: center; margin-bottom: 36px; }
   .hero-icon {
     width: 48px; height: 48px;
-    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    background: var(--surface3);
     border-radius: 14px;
     display: flex; align-items: center; justify-content: center;
     margin: 0 auto 20px;
-    color: var(--accent);
+    color: var(--text-secondary);
   }
+  .hero-icon svg { width: 22px; height: 22px; }
   .hero-title {
-    font-size: 22px; font-weight: 600; color: var(--text);
-    margin: 0 0 8px;
+    font-size: 21px; font-weight: 600; color: var(--text);
+    margin: 0 0 8px; letter-spacing: -.01em;
   }
   .hero-sub {
-    font-size: 14px; color: var(--muted);
-    line-height: 1.6; max-width: 440px; margin: 0 auto;
+    font-size: 13px; color: var(--muted);
+    line-height: 1.6; max-width: 420px; margin: 0 auto;
   }
 
   /* ── Prompt form ── */
@@ -189,15 +190,16 @@
     transition: border-color .15s, box-shadow .15s;
   }
   .prompt-card:focus-within {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 1px var(--accent);
+    border-color: var(--text-secondary);
+    box-shadow: 0 0 0 1px var(--text-secondary);
   }
   .prompt-card-header {
     display: flex; align-items: center; gap: 6px;
-    padding: 12px 16px 0;
-    font-size: 11px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: .5px; color: var(--muted);
+    padding: 14px 16px 0;
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .6px; color: var(--muted);
   }
+  .prompt-card-header svg { width: 14px; height: 14px; opacity: .6; }
   .prompt-input {
     width: 100%;
     background: transparent;
@@ -205,56 +207,56 @@
     color: var(--text);
     font-size: 15px;
     font-family: inherit;
-    line-height: 1.5;
+    line-height: 1.6;
     resize: none;
     outline: none;
     padding: 10px 16px;
     min-height: 24px;
     max-height: 200px;
   }
-  .prompt-input::placeholder { color: var(--muted); opacity: .6; }
+  .prompt-input::placeholder { color: var(--muted); opacity: .5; }
   .prompt-footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 16px 12px;
-    border-top: 1px solid var(--border);
+    padding: 8px 16px 12px;
+    border-top: 1px solid var(--border-light);
   }
   .prompt-hint {
-    font-size: 11px; color: var(--muted);
+    font-size: 10px; color: var(--muted);
   }
   .prompt-hint kbd {
-    background: var(--surface2); border: 1px solid var(--border);
+    background: var(--surface2); border: 1px solid var(--border-light);
     border-radius: 3px; padding: 1px 5px; font-size: 10px;
     font-family: inherit;
   }
   .send-btn {
-    padding: 6px 18px;
+    padding: 5px 16px;
     border-radius: 6px;
     border: none;
     background: var(--accent);
     color: #fff;
-    font-size: 13px;
-    font-weight: 500;
+    font-size: 12px;
+    font-weight: 600;
     cursor: pointer;
-    transition: opacity .15s;
+    transition: background .15s;
   }
-  .send-btn:hover { opacity: .9; }
-  .send-btn:disabled { opacity: .3; cursor: not-allowed; }
+  .send-btn:hover { background: var(--accent-hover); }
+  .send-btn:disabled { opacity: .25; cursor: not-allowed; }
 
   /* ── Section ── */
-  .section { margin-bottom: 36px; }
+  .section { margin-bottom: 32px; }
   .section-header {
     display: flex; align-items: center; gap: 8px;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
   }
   .section-header h3 {
-    font-size: 12px; font-weight: 600; color: var(--muted);
-    text-transform: uppercase; letter-spacing: .6px;
+    font-size: 11px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .8px;
   }
   .section-count {
     font-size: 10px; color: var(--muted);
-    background: var(--surface2); padding: 1px 7px; border-radius: 8px;
+    background: var(--surface2); padding: 1px 6px; border-radius: 6px;
   }
 
   /* ── Project cards ── */
@@ -265,7 +267,7 @@
   }
   .project-card {
     display: flex; align-items: center; gap: 12px;
-    padding: 14px;
+    padding: 12px;
     border-radius: 10px;
     border: 1px solid var(--border);
     background: var(--surface);
@@ -275,29 +277,30 @@
     color: var(--text);
   }
   .project-card:hover {
-    border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+    border-color: var(--surface4);
     background: var(--surface2);
   }
   .project-folder {
     width: 36px; height: 36px; border-radius: 8px;
-    background: var(--surface2);
+    background: var(--surface3);
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0; color: var(--muted);
   }
+  .project-folder svg { width: 18px; height: 18px; }
   .project-info { flex: 1; min-width: 0; }
   .project-name {
-    font-size: 14px; font-weight: 500; color: var(--text);
+    font-size: 13px; font-weight: 500; color: var(--text);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .project-meta {
-    font-size: 12px; color: var(--muted); margin-top: 2px;
+    font-size: 11px; color: var(--muted); margin-top: 1px;
   }
 
   /* ── Conversation list ── */
   .conv-list { display: flex; flex-direction: column; gap: 2px; }
   .conv-row {
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 12px;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 10px;
     border-radius: 8px;
     cursor: pointer;
     transition: background .1s;
@@ -306,21 +309,22 @@
   }
   .conv-row:hover { background: var(--surface2); }
   .conv-row-icon {
-    width: 20px; text-align: center; flex-shrink: 0;
+    width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     color: var(--muted);
   }
+  .conv-row-icon svg { width: 15px; height: 15px; }
   .conv-row-info { flex: 1; min-width: 0; }
   .conv-row-title {
     font-size: 13px; color: var(--text);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .conv-row-meta {
-    font-size: 11px; color: var(--muted); margin-top: 2px;
-    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; color: var(--muted); margin-top: 1px;
+    display: flex; align-items: center; gap: 6px;
   }
   .conv-row-badge {
     font-size: 10px; padding: 0 5px; border-radius: 3px;
-    background: var(--surface2); border: 1px solid var(--border);
+    background: var(--surface2); border: 1px solid var(--border-light);
     color: var(--muted);
   }
   .conv-row-time {

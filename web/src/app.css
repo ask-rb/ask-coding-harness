@@ -8,9 +8,9 @@
   --border-light: #1c1c1f;
   --text: #e3e3e8;
   --text-secondary: #a1a1aa;
-  --muted: #63636b;
+  --muted: #707078;
   --accent: #7c7c85;
-  --accent-hover: #a3a3ac;
+  --accent-hover: #93939b;
   --user-bg: #1f1f22;
   --user-text: #e3e3e8;
   --code-bg: #0a0a0c;
@@ -36,8 +36,8 @@ body.light {
   --text: #111113;
   --text-secondary: #52525b;
   --muted: #8a8a94;
-  --accent: #595960;
-  --accent-hover: #3b3b42;
+  --accent: #63636b;
+  --accent-hover: #4a4a52;
   --user-bg: #d1d5db;
   --user-text: #111113;
   --code-bg: #eef0f3;

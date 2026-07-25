@@ -561,20 +561,32 @@
 	    display: flex; align-items: center; justify-content: center; font-size: 13px;
 	  }
 	  .sidebar-actions button:hover { color: var(--text); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
-	  .sidebar-scroll { flex: 1; overflow-y: auto; padding: 12px 8px; }
+		  .sidebar-scroll { flex: 1; overflow-y: auto; padding: 12px 8px; }
 
-	  .sidebar-section-label {
-	    font-size: 11px; font-weight: 600; text-transform: uppercase;
-	    letter-spacing: .8px; color: var(--muted); padding: 8px 10px 6px;
-	    opacity: .6;
-	  }
+		  .sidebar-section-label {
+		    display: flex; align-items: center; gap: 6px;
+		    font-size: 10px; font-weight: 700; text-transform: uppercase;
+		    letter-spacing: 1px; color: var(--muted); padding: 10px 10px 8px;
+		  }
+		  .section-action-btn {
+		    width: 20px; height: 20px; border-radius: 4px; border: none;
+		    background: none; color: var(--muted); cursor: pointer; font-size: 11px;
+		    display: flex; align-items: center; justify-content: center; padding: 0;
+		    line-height: 1; opacity: 0; transition: opacity .12s;
+		  }
+		  .sidebar-section-label:hover .section-action-btn { opacity: 1; }
+		  .section-action-btn:hover { background: var(--surface3); color: var(--text); }
+		  .section-action-badge {
+		    font-size: 9px; background: var(--surface3);
+		    padding: 1px 6px; border-radius: 6px; color: var(--muted); margin-left: auto;
+		  }
 
-	  .nav-item {
-	    display: flex; align-items: center; gap: 8px;
-	    padding: 8px 10px; border-radius: 6px; cursor: pointer;
-	    font-size: 13px; color: var(--muted); border: none; background: none; width: 100%; text-align: left;
-	  }
-	  .nav-item:hover { background: var(--surface2); color: var(--text); }
+		  .nav-item {
+		    display: flex; align-items: center; gap: 8px;
+		    padding: 7px 10px; border-radius: 6px; cursor: pointer;
+		    font-size: 13px; color: var(--text-secondary); border: none; background: none; width: 100%; text-align: left;
+		  }
+		  .nav-item:hover { background: var(--surface2); color: var(--text); }
 	  .nav-item.active { background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent); }
 	  .nav-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
 	  .nav-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -622,7 +634,7 @@
 	  .archived-item { opacity: .6; }
 	  .archived-item:hover { opacity: 1; }
 
-	  .sidebar-empty { padding: 24px 10px; text-align: center; font-size: 12px; color: var(--muted); }
+		  .sidebar-empty { padding: 20px 10px; text-align: center; font-size: 11px; color: var(--muted); line-height: 1.5; }
 
   .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
   .session-bar { display: flex; align-items: center; padding: 6px 16px; border-bottom: 1px solid var(--border); background: var(--surface); gap: 8px; }
