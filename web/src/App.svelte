@@ -86,9 +86,19 @@
       showCmdPalette = !showCmdPalette;
       cmdFilter = "";
     }
+    if ((e.metaKey || e.ctrlKey) && e.key === "n") {
+      e.preventDefault();
+      newChat();
+    }
     if (e.key === "Escape") {
       showCmdPalette = false;
+      showSettings = false;
       sidebarOpen.set(false);
+    }
+    // / or . to focus chat input when not already in an input
+    if ((e.key === "/" || e.key === ".") && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+      e.preventDefault();
+      window.dispatchEvent(new CustomEvent("focus-chat-input"));
     }
   }
 

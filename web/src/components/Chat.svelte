@@ -44,6 +44,12 @@
   let fileSearch = "";
   let fuse: Fuse<string> | null = null;
 
+  onMount(() => {
+    const focusHandler = () => inputEl?.focus();
+    window.addEventListener("focus-chat-input", focusHandler);
+    return () => window.removeEventListener("focus-chat-input", focusHandler);
+  });
+
   $: if (fileList.length > 0 && !fuse) {
     fuse = new Fuse(fileList, { threshold: 0.4 });
   }
