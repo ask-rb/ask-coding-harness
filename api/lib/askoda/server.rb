@@ -251,6 +251,30 @@ module Askoda
               db&.close
             end
           end
+
+          # Async title generation — after first message, let AI create a concise title
+          if conversation[:title] == "New conversation" && !conversation_id
+            Thread.new do
+              begin
+                sleep 0.5
+                tdb = open_db
+                tconv = load_conversation(tdb, conversation[:id])
+                if tconv && tconv[:title] == "New conversation"
+                  user_msg = tconv[:messages].find { |m| m[:role] == "user" }
+                  if user_msg
+                    ai_title = generate_title(Askoda._adapter, user_msg[:content].to_s)
+                    if ai_title && !ai_title.empty?
+                      tconv[:title] = ai_title
+                      save_conversation(tdb, tconv)
+                    end
+                  end
+                end
+                tdb.close
+              rescue
+                # Best-effort — keep truncated title
+              end
+            end
+          end
         end
 
         # GET /api/conversations — list active conversations (omit archived by default)
@@ -466,6 +490,25 @@ module Askoda
       first_msg = messages.find { |m| m[:role] == "user" || m["role"] == "user" }
       text = (first_msg&.dig(:content) || first_msg&.dig("content") || "").to_s
       text.length > 40 ? text[0..40] + "…" : text
+    end
+
+    def generate_title(adapter, user_message)
+      prompt = "Write a concise title (3-8 words) for this coding conversation based on the user's message. Return ONLY the title — no quotes, no punctuation, no explanation.\n\nUser message: #{user_message[0..500]}"
+      title = nil
+      begin
+        sid = adapter.create_session("/tmp")
+        adapter.send_and_stream(sid, prompt) do |ev|
+          if ev[:type] == "turn.completed"
+            text = ev.dig(:payload, "response") || ""
+            text = text.strip.gsub(/^["'\s]+|["'\s]+$/, "").gsub(/[.!]+$/, "")
+            title = text.length > 50 ? text[0..47] + "…" : text
+            title = nil if title.empty?
+          end
+        end
+      rescue
+        # Best-effort — fall back to truncated title
+      end
+      title
     end
   end
 end
