@@ -23,7 +23,7 @@ export interface Conversation {
   id: string;
   title: string;
   directory?: string;
-  archived?: boolean;
+  message_count?: number;
   messages: Message[];
   created_at?: string;
   updated_at?: string;

@@ -6,5 +6,5 @@ export default {
     compatibility: {
       componentApi: 4
     }
-  },
+  }
 };
