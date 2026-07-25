@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { theme, sidebarOpen, isMobile, projects, currentSessionId, currentMessages, streaming, streamingText, isLoading, toggleTheme, toolCalls, type ToolCall, globalError, connectionError, clearErrors, currentModel, availableModels } from "./lib/stores";
-  import { fetchProjects, fetchSessions, sendChatMessage, fetchConversations, fetchConversation, editMessage, deleteMessagesFrom, renameConversation, archiveConversation, fetchFileList, fetchFileContent, fetchConfig, type Project, type Message, type Conversation } from "./lib/api";
+  import { fetchProjects, fetchSessions, sendChatMessage, fetchConversations, fetchConversation, editMessage, deleteMessagesFrom, renameConversation, archiveConversation, deleteConversation, fetchFileList, fetchFileContent, fetchConfig, type Project, type Message, type Conversation } from "./lib/api";
   import ErrorBoundary from "./components/ErrorBoundary.svelte";
   import Settings from "./components/Settings.svelte";
   import Chat from "./components/Chat.svelte";
@@ -385,80 +385,101 @@
 <div class="app">
   <div class="sidebar-overlay" class:show={$sidebarOpen} onclick={() => sidebarOpen.set(false)} />
 
-	  <aside class="sidebar" class:open={$sidebarOpen}>
-	    <div class="sidebar-header">
-	      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20" style="color: var(--accent); flex-shrink: 0;">
-	        <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
-	      </svg>
-	      <h1>Askoda</h1>
-	      <div class="sidebar-actions">
-	        <button onclick={newChat} title="New chat (⌘N)">✚</button>
-	        <button onclick={() => showSettings = true} title="Settings">⚙</button>
-	        <button onclick={handleToggleTheme} title="Toggle theme">{$theme === "dark" ? "☀" : "☾"}</button>
-	      </div>
-	    </div>
-	    <div class="sidebar-scroll">
-	      <div class="sidebar-section-label">Chats</div>
-	      <button class="nav-item" class:active={!$currentSessionId && !showSettings} onclick={newChat}>
-	        <span class="nav-icon">💬</span>
-	        All conversations
-	        {#if conversationsList.length > 0}
-	          <span class="nav-badge">{conversationsList.length}</span>
-	        {/if}
-	      </button>
+		  <aside class="sidebar" class:open={$sidebarOpen}>
+		    <div class="sidebar-header">
+		      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20" style="color: var(--accent); flex-shrink: 0;">
+		        <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+		      </svg>
+		      <h1>Askoda</h1>
+		      <div class="sidebar-actions">
+		        <button onclick={newChat} title="New chat (⌘N)">✚</button>
+		        <button onclick={() => showSettings = true} title="Settings">⚙</button>
+		        <button onclick={handleToggleTheme} title="Toggle theme">{$theme === "dark" ? "☀" : "☾"}</button>
+		      </div>
+		    </div>
+		    <div class="sidebar-scroll">
+		      <!-- Projects -->
+		      <div class="sidebar-section-label">
+		        <span>Projects</span>
+		        <button class="section-action-btn" onclick={loadProjects} title="Refresh projects">↻</button>
+		      </div>
+		      {#if projectsList.length > 0}
+		        {#each projectsList as proj (proj.directory)}
+		          <div class="nav-project">
+		            <button class="nav-item proj-toggle" onclick={() => toggleProject(proj.directory)}>
+		              <span class="nav-arrow" class:open={expandedDirs.has(proj.directory)}>
+		                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="10" height="10"><path d="M9 18l6-6-6-6"/></svg>
+		              </span>
+		              <span class="nav-icon">📁</span>
+		              <span class="nav-label">{proj.name}</span>
+		              {#if proj.conversation_count}
+		                <span class="nav-badge">{proj.conversation_count}</span>
+		              {/if}
+		            </button>
+		            <button class="nav-new-btn" onclick={() => startProjectConversation(proj.directory)} title="New conversation in this project">✚</button>
+		          </div>
+		          {#if expandedDirs.has(proj.directory) && sessionCache[proj.directory]}
+		            <div class="subnav">
+		              {#each sessionCache[proj.directory] as sess}
+		                <div class="subnav-item-wrapper">
+		                  <button class="subnav-item" class:active={sess.id === $currentSessionId}
+		                    onclick={() => navigateToSession(sess.id)}>
+		                    <span class="subnav-title">{sess.title || "Untitled"}</span>
+		                  </button>
+		                  <div class="subnav-actions">
+		                    <button class="subnav-action" onclick={() => startRename(sess.id, sess.title || "Untitled")} title="Rename">✏️</button>
+		                    <button class="subnav-action" onclick={() => handleArchive(sess.id)} title="Archive">📦</button>
+		                  </div>
+		                </div>
+		              {/each}
+		            </div>
+		          {/if}
+		        {/each}
+		      {:else if !$isLoading}
+		        <div class="sidebar-empty">No projects yet. Start a conversation in a project to see it here.</div>
+		      {/if}
 
-	      {#if projectsList.length > 0}
-	        <div class="sidebar-section-label" style="margin-top: 20px;">Projects</div>
-	        {#each projectsList as proj (proj.directory)}
-	          <div class="nav-project">
-	            <button class="nav-item proj-toggle" onclick={() => toggleProject(proj.directory)}>
-	              <span class="nav-arrow" class:open={expandedDirs.has(proj.directory)}>
-	                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="10" height="10"><path d="M9 18l6-6-6-6"/></svg>
-	              </span>
-	              <span class="nav-icon">📁</span>
-	              <span class="nav-label">{proj.name}</span>
-	              {#if proj.conversation_count}
-	                <span class="nav-badge">{proj.conversation_count}</span>
-	              {/if}
-	            </button>
-	            <button class="nav-new-btn" onclick={() => startProjectConversation(proj.directory)} title="New conversation in this project">✚</button>
-	          </div>
-	          {#if expandedDirs.has(proj.directory) && sessionCache[proj.directory]}
-	            <div class="subnav">
-	              {#each sessionCache[proj.directory] as sess}
-	                <div class="subnav-item-wrapper">
-	                  <button class="subnav-item" class:active={sess.id === $currentSessionId}
-	                    onclick={() => navigateToSession(sess.id)}>
-	                    <span class="subnav-title">{sess.title || "Untitled"}</span>
-	                  </button>
-	                  <div class="subnav-actions">
-	                    <button class="subnav-action" onclick={() => startRename(sess.id, sess.title || "Untitled")} title="Rename">✏️</button>
-	                    <button class="subnav-action" onclick={() => handleArchive(sess.id)} title="Archive">📦</button>
-	                  </div>
-	                </div>
-	              {/each}
-	            </div>
-	          {/if}
-	        {/each}
-	      {:else if !$isLoading}
-	        <div class="sidebar-empty">No projects yet</div>
-	      {/if}
+		      <!-- Conversations -->
+		      <div class="sidebar-section-label" style="margin-top: 20px;">
+		        <span>Chats</span>
+		        <button class="section-action-btn" onclick={newChat} title="New conversation">✚</button>
+		      </div>
+		      {#if conversationsList.length > 0}
+		        {#each conversationsList as conv (conv.id)}
+		          <div class="subnav-item-wrapper">
+		            <button class="subnav-item" class:active={conv.id === currentConversationId}
+		              onclick={() => selectConversation(conv.id)}>
+		              <span class="subnav-title">{conv.title || "Untitled"}</span>
+		            </button>
+		            <div class="subnav-actions">
+		              <button class="subnav-action" onclick={() => startRename(conv.id, conv.title || "Untitled")} title="Rename">✏️</button>
+              <button class="subnav-action" onclick={() => handleArchive(conv.id)} title="Archive">📦</button>
+            </div>
+		          </div>
+		        {/each}
+		      {:else}
+		        <div class="sidebar-empty">No conversations yet.</div>
+		      {/if}
 
-	      {#if archivedConversations.length > 0}
-	        <div class="sidebar-section-label" style="margin-top: 20px;">Archived</div>
-	        {#each archivedConversations as conv (conv.id)}
-	          <div class="subnav-item-wrapper">
-	            <button class="subnav-item archived-item" onclick={() => navigateToSession(conv.id)}>
-	              <span class="subnav-title">📦 {conv.title || "Untitled"}</span>
-	            </button>
-	            <div class="subnav-actions">
-	              <button class="subnav-action" onclick={() => handleArchive(conv.id)} title="Restore">↩️</button>
-	            </div>
-	          </div>
-	        {/each}
-	      {/if}
-	    </div>
-	  </aside>
+		      <!-- Archived -->
+		      {#if archivedConversations.length > 0}
+		        <div class="sidebar-section-label" style="margin-top: 20px;">
+		          <span>Archived</span>
+		          <span class="section-action-badge">{archivedConversations.length}</span>
+		        </div>
+		        {#each archivedConversations as conv (conv.id)}
+		          <div class="subnav-item-wrapper">
+		            <button class="subnav-item archived-item" onclick={() => navigateToSession(conv.id)}>
+		              <span class="subnav-title">📦 {conv.title || "Untitled"}</span>
+		            </button>
+		            <div class="subnav-actions">
+              <button class="subnav-action" onclick={() => handleArchive(conv.id)} title="Restore">↩️</button>
+            </div>
+		          </div>
+		        {/each}
+		      {/if}
+		    </div>
+		  </aside>
 
   <main class="main" ontouchstart={handleTouchStart} ontouchend={handleTouchEnd}>
     {#if $globalError}
