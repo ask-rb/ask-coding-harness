@@ -46,8 +46,6 @@
       promptEl.style.height = Math.min(promptEl.scrollHeight, 200) + "px";
     }
   }
-
-  $: hasContent = projects.length > 0 || conversations.length > 0;
 </script>
 
 <div class="dashboard">
@@ -91,71 +89,59 @@
       </div>
     </div>
 
-    {#if hasContent}
-      <!-- Projects -->
-      {#if projects.length > 0}
-        <div class="section">
-          <div class="section-header">
-            <h3>Projects</h3>
-            <span class="section-count">{projects.length}</span>
-          </div>
-          <div class="project-grid">
-            {#each projects as proj (proj.directory)}
-              <button class="project-card" onclick={() => onStartProject(proj.directory)}>
-                <div class="project-folder">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="22" height="22">
-                    <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
-                  </svg>
-                </div>
-                <div class="project-info">
-                  <div class="project-name">{projectName(proj)}</div>
-                  <div class="project-meta">{proj.conversation_count || 0} session{proj.conversation_count !== 1 ? "s" : ""}</div>
-                </div>
-              </button>
-            {/each}
-          </div>
+    <!-- Projects -->
+    {#if projects.length > 0}
+      <div class="section">
+        <div class="section-header">
+          <h3>Projects</h3>
+          <span class="section-count">{projects.length}</span>
         </div>
-      {/if}
+        <div class="project-grid">
+          {#each projects as proj (proj.directory)}
+            <button class="project-card" onclick={() => onStartProject(proj.directory)}>
+              <div class="project-folder">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="22" height="22">
+                  <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+                </svg>
+              </div>
+              <div class="project-info">
+                <div class="project-name">{projectName(proj)}</div>
+                <div class="project-meta">{proj.conversation_count || 0} session{proj.conversation_count !== 1 ? "s" : ""}</div>
+              </div>
+            </button>
+          {/each}
+        </div>
+      </div>
+    {/if}
 
-      <!-- Recent conversations -->
-      {#if conversations.length > 0}
-        <div class="section">
-          <div class="section-header">
-            <h3>Recent conversations</h3>
-            <span class="section-count">{conversations.length}</span>
-          </div>
-          <div class="conv-list">
-            {#each conversations as conv (conv.id)}
-              <button class="conv-row" onclick={() => onSelectConversation(conv.id)}>
-                <div class="conv-row-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
-                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-                  </svg>
-                </div>
-                <div class="conv-row-info">
-                  <div class="conv-row-title">{conv.title || "Untitled"}</div>
-                  <div class="conv-row-meta">
-                    {conv.message_count ?? conv.messages?.length ?? 0} message{(conv.message_count ?? conv.messages?.length ?? 0) !== 1 ? "s" : ""}
-                    {#if !conv.directory}
-                      <span class="conv-row-badge">No project</span>
-                    {/if}
-                  </div>
-                </div>
-                <span class="conv-row-time">{timeAgo(conv.updated_at)}</span>
-              </button>
-            {/each}
-          </div>
+    <!-- Recent conversations -->
+    {#if conversations.length > 0}
+      <div class="section">
+        <div class="section-header">
+          <h3>Recent conversations</h3>
+          <span class="section-count">{conversations.length}</span>
         </div>
-      {/if}
-    {:else}
-      <!-- True empty state -->
-      <div class="empty-state">
-        <div class="empty-icon">🚀</div>
-        <p class="empty-text">
-          No conversations or projects yet. Start typing above to begin,
-          or connect a project to get code-aware assistance.
-        </p>
-        <button class="learn-link" onclick={newChat}>New conversation →</button>
+        <div class="conv-list">
+          {#each conversations as conv (conv.id)}
+            <button class="conv-row" onclick={() => onSelectConversation(conv.id)}>
+              <div class="conv-row-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
+                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                </svg>
+              </div>
+              <div class="conv-row-info">
+                <div class="conv-row-title">{conv.title || "Untitled"}</div>
+                <div class="conv-row-meta">
+                  {conv.message_count ?? conv.messages?.length ?? 0} message{(conv.message_count ?? conv.messages?.length ?? 0) !== 1 ? "s" : ""}
+                  {#if !conv.directory}
+                    <span class="conv-row-badge">No project</span>
+                  {/if}
+                </div>
+              </div>
+              <span class="conv-row-time">{timeAgo(conv.updated_at)}</span>
+            </button>
+          {/each}
+        </div>
       </div>
     {/if}
   </div>
@@ -164,7 +150,7 @@
 <style>
   .dashboard {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
     height: 100%;
     overflow-y: auto;
@@ -340,26 +326,6 @@
   .conv-row-time {
     font-size: 11px; color: var(--muted); flex-shrink: 0;
   }
-
-  /* ── Empty state ── */
-  .empty-state {
-    text-align: center;
-    padding: 36px 24px;
-    border: 1px dashed var(--border);
-    border-radius: 10px;
-    margin-bottom: 40px;
-  }
-  .empty-icon { font-size: 28px; margin-bottom: 12px; }
-  .empty-text {
-    font-size: 13px; color: var(--muted);
-    line-height: 1.5; max-width: 360px; margin: 0 auto;
-  }
-  .learn-link {
-    display: inline-block; margin-top: 14px;
-    font-size: 13px; color: var(--accent);
-    background: none; border: none; cursor: pointer;
-  }
-  .learn-link:hover { text-decoration: underline; }
 
   @media (max-width: 600px) {
     .dashboard { padding: 32px 16px; }
