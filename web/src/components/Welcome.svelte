@@ -122,7 +122,7 @@
           <span class="section-count">{conversations.length}</span>
         </div>
         <div class="conv-list">
-          {#each conversations as conv (conv.id)}
+          {#each [...conversations].sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || "")).slice(0, 8) as conv (conv.id)}
             <button class="conv-row" onclick={() => onSelectConversation(conv.id)}>
               <div class="conv-row-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
