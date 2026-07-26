@@ -294,14 +294,14 @@ class ApiTest < Minitest::Test
     assert data["files"].any? { |f| f.include?("server.rb") }, "Should list server.rb"
   end
 
-	def test_file_read
-	  get "/api/files/read?path=api/test/test_helper.rb"
-	  assert_equal 200, last_response.status
-	  data = JSON.parse(last_response.body)
-	  assert_equal "api/test/test_helper.rb", data["path"]
-	  assert data["content"].length > 50, "Content should be non-trivial"
-	  assert_includes data["content"], "frozen_string_literal"
-	end
+  def test_file_read
+    get "/api/files/read?path=test/test_helper.rb"
+    assert_equal 200, last_response.status
+    data = JSON.parse(last_response.body)
+    assert_equal "test/test_helper.rb", data["path"]
+    assert data["content"].length > 50, "Content should be non-trivial"
+    assert_includes data["content"], "frozen_string_literal"
+  end
 
   def test_file_read_not_found
     get "/api/files/read?path=nonexistent_file.rb"
