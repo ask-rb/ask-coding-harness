@@ -492,13 +492,6 @@
           {#if selectedDirectory}
             <span class="dir-badge">📁 {selectedDirectory.split("/").filter(Boolean).pop()}</span>
           {/if}
-          <div class="model-picker">
-            <select class="model-select" bind:value={$currentModel}>
-              {#each $availableModels as model}
-                <option value={model}>{model}</option>
-              {/each}
-            </select>
-          </div>
           {#if $currentSessionId}
             <button class="fork-btn" onclick={forkCurrentSession} title="Fork this session">⑂ Fork</button>
           {/if}
@@ -507,7 +500,7 @@
       {#if $currentMessages.length === 0 && !$streamingText}
         <Welcome {newChat} projects={projectsList} onStartProject={startProjectConversation} onSend={handleSend} />
       {:else}
-        <Chat messages={$currentMessages} streamingText={$streamingText} isStreaming={$streaming} toolCalls={$toolCalls} onSend={handleSend} onCancel={cancelStream} onEdit={handleEdit} onDelete={handleDelete} onRetry={handleRetry} {attachedFiles} {fileList} onToggleFile={toggleFileAttachment} onClearFiles={clearAttachments} />
+        <Chat messages={$currentMessages} streamingText={$streamingText} isStreaming={$streaming} toolCalls={$toolCalls} onSend={handleSend} onCancel={cancelStream} onEdit={handleEdit} onDelete={handleDelete} onRetry={handleRetry} {attachedFiles} {fileList} onToggleFile={toggleFileAttachment} onClearFiles={clearAttachments} currentModel={$currentModel} availableModels={$availableModels} onModelChange={(m: string) => currentModel.set(m)} {selectedDirectory} />
       {/if}
       {#if refresing}
         <div class="pull-indicator">↻ Refreshing...</div>
@@ -645,13 +638,6 @@
   }
   .fork-btn { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface2); color: var(--muted); cursor: pointer; font-size: 12px; }
   .fork-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .model-picker { margin-right: auto; }
-  .model-picker .model-select {
-    padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border);
-    background: var(--surface2); color: var(--text); font-size: 12px; max-width: 240px;
-    cursor: pointer;
-  }
-  .model-picker .model-select:hover { border-color: var(--accent); }
 
   /* Command Palette */
   .cmd-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: flex-start; justify-content: center; padding-top: 80px; z-index: 200; }
