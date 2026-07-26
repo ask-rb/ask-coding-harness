@@ -141,34 +141,41 @@ class ApiTest < Minitest::Test
 
   # ── Conversation tests ──
 
-  def test_conversation_create_and_fetch
-    # Create a conversation by sending a chat
-    post "/api/chat", { message: "persist this" }.to_json, { "CONTENT_TYPE" => "application/json" }
-    assert_equal 200, last_response.status
+	def test_conversation_create_and_fetch
+	  # Create a conversation by sending a chat
+	  post "/api/chat", { message: "persist this" }.to_json, { "CONTENT_TYPE" => "application/json" }
+	  assert_equal 200, last_response.status
+	
+	  # Extract the conversation ID from the SSE conversation.created event
+	  cid = nil
+	  last_response.body.each_line do |line|
+	    if line.start_with?("data: ") && line.length > 20
+	      cid = line[6..].strip
+	      break
+	    end
+	  end
+	  refute_nil cid, "Should have extracted a conversation ID"
+	
+	  # Fetch the full conversation
+	  get "/api/conversations/#{cid}"
+	  assert_equal 200, last_response.status
+	  conv = JSON.parse(last_response.body)
+	  assert_equal cid, conv["id"]
+	  assert_operator conv["messages"].length, :>=, 1
+	  assert_equal "user", conv["messages"].first["role"]
+	  assert_equal "persist this", conv["messages"].first["content"]
+	end
 
-    # List conversations
-    get "/api/conversations"
-    assert_equal 200, last_response.status
-    list = JSON.parse(last_response.body)
-    assert_kind_of Array, list
-    refute_empty list, "Should have at least one conversation"
-    cid = list.last["id"]
-    assert cid, "Conversation should have an ID"
-
-    # Fetch the full conversation
-    get "/api/conversations/#{cid}"
-    assert_equal 200, last_response.status
-    conv = JSON.parse(last_response.body)
-    assert_equal cid, conv["id"]
-    assert_operator conv["messages"].length, :>=, 1
-    assert_equal "user", conv["messages"].first["role"]
-    assert_equal "persist this", conv["messages"].first["content"]
-  end
-
-  def test_conversation_deletion
-    post "/api/chat", { message: "delete me" }.to_json, { "CONTENT_TYPE" => "application/json" }
-    get "/api/conversations"
-    cid = JSON.parse(last_response.body).last["id"]
+	def test_conversation_deletion
+	  post "/api/chat", { message: "delete me" }.to_json, { "CONTENT_TYPE" => "application/json" }
+	  cid = nil
+	  last_response.body.each_line do |line|
+	    if line.start_with?("data: ") && line.length > 20
+	      cid = line[6..].strip
+	      break
+	    end
+	  end
+	  refute_nil cid, "Should have extracted a conversation ID"
 
     delete "/api/conversations/#{cid}"
     assert_equal 200, last_response.status
@@ -287,14 +294,14 @@ class ApiTest < Minitest::Test
     assert data["files"].any? { |f| f.include?("server.rb") }, "Should list server.rb"
   end
 
-  def test_file_read
-    get "/api/files/read?path=test/test_helper.rb"
-    assert_equal 200, last_response.status
-    data = JSON.parse(last_response.body)
-    assert_equal "test/test_helper.rb", data["path"]
-    assert data["content"].length > 50, "Content should be non-trivial"
-    assert_includes data["content"], "frozen_string_literal"
-  end
+	def test_file_read
+	  get "/api/files/read?path=api/test/test_helper.rb"
+	  assert_equal 200, last_response.status
+	  data = JSON.parse(last_response.body)
+	  assert_equal "api/test/test_helper.rb", data["path"]
+	  assert data["content"].length > 50, "Content should be non-trivial"
+	  assert_includes data["content"], "frozen_string_literal"
+	end
 
   def test_file_read_not_found
     get "/api/files/read?path=nonexistent_file.rb"

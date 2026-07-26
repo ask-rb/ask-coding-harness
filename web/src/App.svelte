@@ -507,7 +507,7 @@
       {#if $currentMessages.length === 0 && !$streamingText}
         <Welcome {newChat} projects={projectsList} conversations={conversationsList} onStartProject={startProjectConversation} onSend={handleSend} onSelectConversation={selectConversation} />
       {:else}
-        <Chat messages={$currentMessages} streamingText={$streamingText} isStreaming={$streaming} toolCalls={$toolCalls} onSend={handleSend} onCancel={cancelStream} {onEdit} {onDelete} {onRetry} {attachedFiles} {fileList} onToggleFile={toggleFileAttachment} onClearFiles={clearAttachments} />
+        <Chat messages={$currentMessages} streamingText={$streamingText} isStreaming={$streaming} toolCalls={$toolCalls} onSend={handleSend} onCancel={cancelStream} onEdit={handleEdit} onDelete={handleDelete} onRetry={handleRetry} {attachedFiles} {fileList} onToggleFile={toggleFileAttachment} onClearFiles={clearAttachments} />
       {/if}
       {#if refresing}
         <div class="pull-indicator">↻ Refreshing...</div>

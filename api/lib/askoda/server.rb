@@ -12,8 +12,13 @@ module Askoda
   # Shared adapter instance (set from config.ru, accessed by routes)
   @_adapter = nil
 
+  # File listing cache (module-level so it persists across Roda instances)
+  @file_list_cache = nil
+  @file_list_cache_time = nil
+  FILE_LIST_CACHE_TTL = 5 # seconds — invalidate after 5s
+
   class << self
-    attr_accessor :_adapter
+    attr_accessor :_adapter, :file_list_cache, :file_list_cache_time
   end
 
   # HTTP API + static file server for the Askoda coding assistant.
@@ -45,18 +50,12 @@ module Askoda
     plugin :public, root: File.expand_path("../../../public", File.dirname(__FILE__))
     plugin :streaming
 
-    # Load .env if present
-    if File.exist?(File.expand_path(".env"))
-      File.readlines(".env").each do |line|
-        line = line.strip
-        next if line.empty? || line.start_with?("#") || !line.include?("=")
-        k, v = line.split("=", 2)
-        ENV[k.strip] = v.strip.delete("\"'") unless k.strip.empty?
-      end
-    end
-
-    DB_PATH = ENV.fetch("ASKODA_DB_PATH", File.join(Dir.pwd, "data", "askoda.db"))
+    DB_PATH = ENV.fetch("ASKODA_DB_PATH", File.expand_path(File.join(Dir.pwd, "data", "askoda.db"))).freeze
     CONVERSATIONS_KEY = "__conversations__"
+
+    IGNORE_DIRS = %w[.git node_modules vendor/bundle tmp log .DS_Store coverage].freeze
+    BINARY_EXTS = %w[.png .jpg .jpeg .gif .ico .svg .woff .woff2 .eot .ttf .otf .mp4 .mp3 .zip .gz .tar .exe .dll .so .o .pyc].to_set.freeze
+    MAX_FILE_SIZE = 1_048_576 # 1 MB
 
     def self.build_provider_adapter
       provider = ENV.fetch("CODING_PROVIDER", "acp")
@@ -79,24 +78,7 @@ module Askoda
       r.on "api" do
         # GET /api/files — list all project files recursively
         r.get "files" do
-          root = Dir.pwd
-          ignore = %w[.git node_modules vendor/bundle tmp log .DS_Store coverage]
-          binary_ext = %w[.png .jpg .jpeg .gif .ico .svg .woff .woff2 .eot .ttf .otf .mp4 .mp3 .zip .gz .tar .exe .dll .so .o .pyc]
-          result = []
-          Find.find(root) do |path|
-            rel = path.sub("#{root}/", "")
-            next if rel.empty?
-            # Check if any component of the relative path should be ignored
-            parts = rel.split("/")
-            next if parts.any? { |p| ignore.include?(p) || p.start_with?(".") }
-            next unless File.file?(path)
-            ext = File.extname(path).downcase
-            next if binary_ext.include?(ext)
-            # Skip files > 1MB
-            next if File.size(path) > 1_048_576
-            result << rel
-          end
-          { files: result.sort }.to_json
+          { files: cached_file_list }.to_json
         end
 
         # GET /api/files/read?path=... — read a file
@@ -130,7 +112,8 @@ module Askoda
           end
           { models: models, defaultModel: default, currentAdapter: ENV.fetch("CODING_PROVIDER", "acp") }.to_json
         end
-	        # GET /api/projects — list projects derived from active conversation directories
+
+        # GET /api/projects — list projects derived from active conversation directories
         r.get "projects" do
           db = open_db
           keys = db.list_range(CONVERSATIONS_KEY, 0, -1)
@@ -157,9 +140,11 @@ module Askoda
               next unless data
               conv_dir = data["directory"] || data[:directory]
               next unless conv_dir == dir
-              { id: data["id"], title: data["title"] || "New conversation", message_count: (data["messages"] || []).length, updated_at: data["updated_at"] }
+              build_conversation_summary(data)
             end
             db.close
+            # Sort by most recently updated first
+            conversations.sort_by! { |c| c[:updated_at] || "" }.reverse!
             conversations.to_json
           end
         end
@@ -181,7 +166,6 @@ module Askoda
         end
 
         # POST /api/chat — streaming chat
-        # POST /api/chat — streaming chat
         r.post "chat" do
           body = JSON.parse(r.body.read)
           input = body["message"].to_s.strip
@@ -197,15 +181,18 @@ module Askoda
           # Load or create conversation
           db = open_db
           conversation = if conversation_id
-            load_conversation(db, conversation_id) || create_conversation(db, directory: directory)
+            load_conversation(db, conversation_id) || create_conversation(directory: directory)
           else
-            create_conversation(db, directory: directory)
+            create_conversation(directory: directory)
           end
 
           # Append user message
           conversation[:messages] << { role: "user", content: input, created_at: Time.now.iso8601 }
           save_conversation(db, conversation)
           index_conversation(db, conversation)
+
+          # Invalidate file cache on new chat (project files may have changed)
+          invalidate_file_cache
 
           # Stream the response
           response.headers["Content-Type"] = "text/event-stream"
@@ -258,14 +245,15 @@ module Askoda
               begin
                 sleep 0.5
                 tdb = open_db
-                tconv = load_conversation(tdb, conversation[:id])
+                tconv_data = tdb.get("conv:#{conversation[:id]}")
+                tconv = tconv_data ? symbolize_keys(tconv_data) : nil
                 if tconv && tconv[:title] == "New conversation"
                   user_msg = tconv[:messages].find { |m| m[:role] == "user" }
                   if user_msg
                     ai_title = generate_title(Askoda._adapter, user_msg[:content].to_s)
                     if ai_title && !ai_title.empty?
                       tconv[:title] = ai_title
-                      save_conversation(tdb, tconv)
+                      tdb.set("conv:#{tconv[:id]}", tconv)
                     end
                   end
                 end
@@ -283,10 +271,14 @@ module Askoda
           db = open_db
           keys = db.list_range(CONVERSATIONS_KEY, 0, -1)
           conversations = keys.filter_map { |id|
-            summary = load_conversation_summary(db, id)
-            summary if summary && (show_archived || !summary[:archived])
+            data = db.get("conv:#{id}")
+            next unless data
+            next unless show_archived || data["archived"] != true
+            build_conversation_summary(data)
           }
           db.close
+          # Sort by most recently updated first
+          conversations.sort_by! { |c| c[:updated_at] || "" }.reverse!
           conversations.to_json
         end
 
@@ -295,10 +287,10 @@ module Askoda
           # GET /api/conversations/:id
           r.get do
             db = open_db
-            conv = load_conversation(db, id)
+            data = db.get("conv:#{id}")
             db.close
-            if conv
-              conv.to_json
+            if data
+              symbolize_keys(data).to_json
             else
               response.status = 404
               { error: "Conversation not found" }.to_json
@@ -314,15 +306,15 @@ module Askoda
               next { error: "title is required" }.to_json
             end
             db = open_db
-            conv = load_conversation(db, id)
-            unless conv
+            conv_data = db.get("conv:#{id}")
+            unless conv_data
               db.close
               response.status = 404
               next { error: "Conversation not found" }.to_json
             end
+            conv = symbolize_keys(conv_data)
             conv[:title] = new_title
-            save_conversation(db, conv)
-            index_conversation(db, conv)
+            db.set("conv:#{id}", conv)
             db.close
             { id: id, title: new_title }.to_json
           end
@@ -339,14 +331,15 @@ module Askoda
           # POST /api/conversations/:id/archive — toggle archive status
           r.post "archive" do
             db = open_db
-            conv = load_conversation(db, id)
-            unless conv
+            conv_data = db.get("conv:#{id}")
+            unless conv_data
               db.close
               response.status = 404
               next { error: "Conversation not found" }.to_json
             end
+            conv = symbolize_keys(conv_data)
             conv[:archived] = !conv[:archived]
-            save_conversation(db, conv)
+            db.set("conv:#{id}", conv)
             db.close
             { id: id, archived: conv[:archived] }.to_json
           end
@@ -364,12 +357,13 @@ module Askoda
               end
 
               db = open_db
-              conv = load_conversation(db, id)
-              unless conv
+              conv_data = db.get("conv:#{id}")
+              unless conv_data
                 db.close
                 response.status = 404
                 next { error: "Conversation not found" }.to_json
               end
+              conv = symbolize_keys(conv_data)
 
               if index >= conv[:messages].length
                 db.close
@@ -385,7 +379,7 @@ module Askoda
               end
 
               msg[:content] = new_content
-              save_conversation(db, conv)
+              db.set("conv:#{id}", conv)
               db.close
               conv.to_json
             end
@@ -393,12 +387,13 @@ module Askoda
             # DELETE /api/conversations/:id/messages/:index — delete from here
             r.on method: :delete do
               db = open_db
-              conv = load_conversation(db, id)
-              unless conv
+              conv_data = db.get("conv:#{id}")
+              unless conv_data
                 db.close
                 response.status = 404
                 next { error: "Conversation not found" }.to_json
               end
+              conv = symbolize_keys(conv_data)
 
               if index >= conv[:messages].length
                 db.close
@@ -407,7 +402,7 @@ module Askoda
               end
 
               conv[:messages] = conv[:messages][0...index]
-              save_conversation(db, conv)
+              db.set("conv:#{id}", conv)
               db.close
               conv.to_json
             end
@@ -430,28 +425,77 @@ module Askoda
 
     private
 
+    # ── Database ──
+
+    # Open a new database connection per call.
+    # Each request gets its own connection to avoid SQLITE_BUSY contention.
+    # Callers are responsible for closing the connection when done.
     def open_db
       dir = File.dirname(DB_PATH)
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
       Ask::State::Providers::SQLite.new(path: DB_PATH)
     end
 
-    def create_conversation(db, directory: nil)
+    # ── File listing cache ──
+
+    def cached_file_list
+      now = Time.now
+      cache = Askoda.file_list_cache
+      cache_time = Askoda.file_list_cache_time
+
+      if cache && cache_time && (now - cache_time) < Askoda::FILE_LIST_CACHE_TTL
+        return cache
+      end
+
+      result = compute_file_list
+      Askoda.file_list_cache = result
+      Askoda.file_list_cache_time = now
+      result
+    end
+
+    def compute_file_list
+      root = Dir.pwd
+      result = []
+      Find.find(root) do |path|
+        rel = path.sub("#{root}/", "")
+        next if rel.empty?
+        parts = rel.split("/")
+        next if parts.any? { |p| IGNORE_DIRS.include?(p) || p.start_with?(".") }
+        next unless File.file?(path)
+        ext = File.extname(path).downcase
+        next if BINARY_EXTS.include?(ext)
+        next if File.size(path) > MAX_FILE_SIZE
+        result << rel
+      end
+      result.sort!
+    end
+
+    def invalidate_file_cache
+      Askoda.file_list_cache = nil
+      Askoda.file_list_cache_time = nil
+    end
+
+    # ── Conversation helpers ──
+
+    def create_conversation(directory: nil)
       id = SecureRandom.uuid
+      now = Time.now.iso8601
       {
         id: id,
         title: "New conversation",
         directory: directory,
         archived: false,
         messages: [],
-        created_at: Time.now.iso8601,
-        updated_at: Time.now.iso8601
+        created_at: now,
+        updated_at: now
       }
     end
 
     def save_conversation(db, conv)
       conv[:updated_at] = Time.now.iso8601
-      conv[:title] = guess_title(conv[:messages]) if conv[:title] == "New conversation" && conv[:messages].length >= 1
+      if conv[:title] == "New conversation" && conv[:messages].length >= 1
+        conv[:title] = guess_title(conv[:messages])
+      end
       db.set("conv:#{conv[:id]}", conv)
     end
 
@@ -464,20 +508,12 @@ module Askoda
       data ? symbolize_keys(data) : nil
     end
 
-    def symbolize_keys(obj)
-      case obj
-      when Hash then obj.each_with_object({}) { |(k, v), h| h[k.to_sym] = symbolize_keys(v) }
-      when Array then obj.map { |v| symbolize_keys(v) }
-      else obj
-      end
-    end
-
-    def load_conversation_summary(db, id)
-      data = db.get("conv:#{id}")
-      return nil unless data
+    # Build a lightweight summary hash without loading/full-symbolizing messages.
+    # Uses string keys from the DB directly to avoid unnecessary hash copies.
+    def build_conversation_summary(data)
       {
         id: data["id"],
-        title: data["title"],
+        title: data["title"] || "New conversation",
         directory: data["directory"],
         archived: data["archived"] == true,
         message_count: data["messages"]&.length || 0,
@@ -486,15 +522,26 @@ module Askoda
       }
     end
 
+    def symbolize_keys(obj)
+      case obj
+      when Hash then obj.each_with_object({}) { |(k, v), h| h[k.to_sym] = symbolize_keys(v) }
+      when Array then obj.map { |v| symbolize_keys(v) }
+      else obj
+      end
+    end
+
     def guess_title(messages)
       first_msg = messages.find { |m| m[:role] == "user" || m["role"] == "user" }
       text = (first_msg&.dig(:content) || first_msg&.dig("content") || "").to_s
       text.length > 40 ? text[0..40] + "…" : text
     end
 
+    # Generate an AI title for a conversation.
+    # Creates a temporary ACP session and closes it after getting the title.
     def generate_title(adapter, user_message)
       prompt = "Write a concise title (3-8 words) for this coding conversation based on the user's message. Return ONLY the title — no quotes, no punctuation, no explanation.\n\nUser message: #{user_message[0..500]}"
       title = nil
+      sid = nil
       begin
         sid = adapter.create_session("/tmp")
         adapter.send_and_stream(sid, prompt) do |ev|
@@ -507,6 +554,9 @@ module Askoda
         end
       rescue
         # Best-effort — fall back to truncated title
+      ensure
+        # Close the temporary session to avoid leaking ACP sessions
+        adapter&.resume_session(sid) if sid
       end
       title
     end
