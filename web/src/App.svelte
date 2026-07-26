@@ -285,6 +285,12 @@
             return calls;
           });
         }
+        if (event.type === "data" && event.data.error) {
+          streamingText.set("");
+          toolCalls.set([]);
+          currentMessages.update((msgs) => [...msgs, { role: "assistant", content: `Error: ${event.data.error}` }]);
+          loadConversations();
+        }
       },
       (err) => currentMessages.update((msgs) => [...msgs, { role: "assistant", content: `Error: ${err}` }]),
       () => { streaming.set(false); abortController = null; }

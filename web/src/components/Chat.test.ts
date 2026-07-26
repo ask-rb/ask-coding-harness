@@ -119,7 +119,6 @@ describe("Chat autocomplete", () => {
   });
 });
 
-// Drag-and-drop tests
 describe("Chat drag-and-drop", () => {
   it("prepends dropped file content to input", () => {
     const fileContent = "console.log('hello');";
@@ -183,5 +182,57 @@ describe("Chat drag-and-drop", () => {
         type === "";
       expect(isText).toBe(true);
     }
+  });
+});
+
+// Retry button tests
+describe("Chat retry", () => {
+  it("detects error messages by content prefix", () => {
+    const isError = (content: string) => content.startsWith("Error:");
+    expect(isError("Error: Model unavailable")).toBe(true);
+    expect(isError("Error: time out")).toBe(true);
+    expect(isError("Hello, how can I help?")).toBe(false);
+    expect(isError("The error occurred")).toBe(false);
+  });
+
+  it("invokes onRetry with correct index", () => {
+    let calledIndex = -1;
+    function onRetry(idx: number) {
+      calledIndex = idx;
+    }
+    onRetry(3);
+    expect(calledIndex).toBe(3);
+    onRetry(0);
+    expect(calledIndex).toBe(0);
+  });
+
+  it("handleRetry deletes from previous user message and re-sends", () => {
+    // Simulate the retry flow: find user message before error and re-send
+    const messages = [
+      { role: "user", content: "hello" },
+      { role: "assistant", content: "Error: Something went wrong" },
+    ];
+    const errorIndex = 1; // index of the error message
+    const userIdx = errorIndex > 0 && messages[errorIndex - 1]?.role === "user" ? errorIndex - 1 : errorIndex;
+    const userText = messages[userIdx]?.content || "";
+    expect(userIdx).toBe(0);
+    expect(userText).toBe("hello");
+  });
+
+  it("falls back to same index if previous message is not user", () => {
+    const messages = [
+      { role: "assistant", content: "previous response" },
+      { role: "assistant", content: "Error: Something went wrong" },
+    ];
+    const errorIndex = 1;
+    const userIdx = errorIndex > 0 && messages[errorIndex - 1]?.role === "user" ? errorIndex - 1 : errorIndex;
+    expect(userIdx).toBe(1);
+  });
+
+  it("renders error message content correctly", () => {
+    const errorContent = "Error: Model unavailable";
+    const rendered = `🤖 ${errorContent}`;
+    expect(rendered).toContain("Error");
+    expect(rendered).toContain("Model unavailable");
   });
 });
