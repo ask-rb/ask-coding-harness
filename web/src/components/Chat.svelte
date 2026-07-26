@@ -52,6 +52,10 @@
   let autoIndex = 0;
   let autoEl: HTMLDivElement;
 
+  // Drag-and-drop state
+  let dragOver = false;
+  let dragCount = 0;
+
   $: matchingIndices = searchTerm
     ? messages.reduce<number[]>((acc, msg, i) => {
         if (msg.content.toLowerCase().includes(searchTerm.toLowerCase())) acc.push(i);
@@ -226,12 +230,91 @@
     e.stopPropagation();
   }
 
+  // Drag-and-drop handlers
+  function handleDragEnter(e: DragEvent) {
+    if (e.dataTransfer?.types.includes("Files")) {
+      dragCount++;
+      dragOver = true;
+    }
+  }
+
+  function handleDragLeave(e: DragEvent) {
+    if (e.dataTransfer?.types.includes("Files")) {
+      dragCount--;
+      if (dragCount <= 0) { dragCount = 0; dragOver = false; }
+    }
+  }
+
+  function handleDragOver(e: DragEvent) {
+    if (e.dataTransfer?.types.includes("Files")) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+    }
+  }
+
+  async function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    dragOver = false;
+    dragCount = 0;
+    if (!e.dataTransfer?.files || e.dataTransfer.files.length === 0) return;
+
+    const parts: string[] = [];
+    for (const file of Array.from(e.dataTransfer.files)) {
+      if (file.size > 1_000_000) {
+        parts.push(`📄 ${file.name}\n\`\`\`\n[File too large: ${(file.size / 1024 / 1024).toFixed(1)} MB — max 1 MB]\n\`\`\``);
+        continue;
+      }
+      try {
+        const text = await readFileContent(file);
+        parts.push(`📄 ${file.name}\n\`\`\`\n${text}\n\`\`\``);
+      } catch {
+        parts.push(`📄 ${file.name}\n\`\`\`\n[Unable to read file — binary or unsupported format]\n\`\`\``);
+      }
+    }
+    if (parts.length > 0) {
+      inputValue = (inputValue ? inputValue + "\n\n" : "") + parts.join("\n\n");
+      if (inputEl) {
+        inputEl.focus();
+        inputEl.selectionStart = inputEl.selectionEnd = inputValue.length;
+      }
+    }
+  }
+
+  function readFileContent(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      // Only read text files
+      if (file.type && !file.type.startsWith("text/") && !file.type.startsWith("application/json") && !file.type.startsWith("application/xml") && !file.type.startsWith("application/javascript") && !file.type.includes("script") && !file.type.includes("yaml") && !file.type.includes("toml") && file.type !== "") {
+        reject(new Error("Binary file"));
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(file);
+    });
+  }
+
   $: placeholderText = selectedDirectory
     ? `Ask about ${selectedDirectory.split("/").filter(Boolean).pop()}...`
     : "Type your message or use @ to mention files, / for commands...";
 </script>
 
-<div class="chat-container">
+<div class="chat-container"
+  ondragenter={handleDragEnter}
+  ondragleave={handleDragLeave}
+  ondragover={handleDragOver}
+  ondrop={handleDrop}>
+
+  {#if dragOver}
+    <div class="drag-overlay">
+      <div class="drag-content">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>
+        </svg>
+        <span>Drop files to attach</span>
+      </div>
+    </div>
+  {/if}
   {#if showSearch}
     <div class="search-bar">
       <span class="search-icon">🔍</span>
@@ -376,6 +459,23 @@
 
 <style>
   .chat-container { display: flex; flex-direction: column; height: 100%; position: relative; }
+
+  /* Drag-and-drop overlay */
+  .drag-overlay {
+    position: absolute; inset: 0; z-index: 40;
+    background: color-mix(in srgb, var(--surface2) 90%, transparent);
+    border: 2px dashed var(--accent);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 8px;
+    pointer-events: none;
+  }
+  .drag-content {
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    color: var(--accent); opacity: .8;
+  }
+  .drag-content svg { display: block; }
+  .drag-content span { font-size: 14px; font-weight: 500; }
 
   .search-bar {
     display: flex; align-items: center; gap: 8px; padding: 8px 16px;

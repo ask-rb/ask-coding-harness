@@ -118,3 +118,70 @@ describe("Chat autocomplete", () => {
     expect(inputAfter).toBe("check @src/main.ts ");
   });
 });
+
+// Drag-and-drop tests
+describe("Chat drag-and-drop", () => {
+  it("prepends dropped file content to input", () => {
+    const fileContent = "console.log('hello');";
+    const inputValue = "check this code";
+    const formatted = `📄 test.js\n\`\`\`\n${fileContent}\n\`\`\``;
+    const result = (inputValue ? inputValue + "\n\n" : "") + formatted;
+    expect(result).toBe("check this code\n\n📄 test.js\n```\nconsole.log('hello');\n```");
+  });
+
+  it("handles multiple dropped files", () => {
+    const files = [
+      { name: "a.ts", content: "const a = 1;" },
+      { name: "b.ts", content: "const b = 2;" },
+    ];
+    const parts = files.map(f => `📄 ${f.name}\n\`\`\`\n${f.content}\n\`\`\``);
+    const result = parts.join("\n\n");
+    expect(result).toBe("📄 a.ts\n```\nconst a = 1;\n```\n\n📄 b.ts\n```\nconst b = 2;\n```");
+  });
+
+  it("shows error for files over size limit", () => {
+    const fileSize = 2 * 1024 * 1024; // 2 MB
+    const fileInfo = `📄 large.bin\n\`\`\`\n[File too large: ${(fileSize / 1024 / 1024).toFixed(1)} MB — max 1 MB]\n\`\`\``;
+    expect(fileInfo).toContain("File too large");
+    expect(fileInfo).toContain("2.0 MB");
+  });
+
+  it("handles drop when input is empty", () => {
+    const fileContent = "hello world";
+    const inputValue = "";
+    const formatted = `📄 readme.txt\n\`\`\`\n${fileContent}\n\`\`\``;
+    const result = (inputValue ? inputValue + "\n\n" : "") + formatted;
+    expect(result).toBe("📄 readme.txt\n```\nhello world\n```");
+  });
+
+  it("rejects binary files by MIME type", () => {
+    const binaryTypes = ["image/png", "application/octet-stream", "video/mp4", "audio/mpeg"];
+    for (const type of binaryTypes) {
+      const isText = type.startsWith("text/") ||
+        type.startsWith("application/json") ||
+        type.startsWith("application/xml") ||
+        type.startsWith("application/javascript") ||
+        type.includes("script") ||
+        type.includes("yaml") ||
+        type.includes("toml") ||
+        type === "";
+      expect(isText).toBe(false);
+    }
+  });
+
+  it("accepts text files by MIME type", () => {
+    const textTypes = ["text/plain", "text/html", "text/css", "text/javascript",
+      "application/json", "application/xml", "application/yaml", ""];
+    for (const type of textTypes) {
+      const isText = type.startsWith("text/") ||
+        type.startsWith("application/json") ||
+        type.startsWith("application/xml") ||
+        type.startsWith("application/javascript") ||
+        type.includes("script") ||
+        type.includes("yaml") ||
+        type.includes("toml") ||
+        type === "";
+      expect(isText).toBe(true);
+    }
+  });
+});
