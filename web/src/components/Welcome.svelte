@@ -1,10 +1,8 @@
 <script>
   export let newChat;
   export let projects = [];
-  export let conversations = [];
   export let onStartProject = () => {};
   export let onSend = () => {};
-  export let onSelectConversation = () => {};
 
   let promptText = "";
   let promptEl;
@@ -21,19 +19,6 @@
       e.preventDefault();
       handlePromptSubmit();
     }
-  }
-
-  function timeAgo(dateStr) {
-    if (!dateStr) return "";
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "Just now";
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    const days = Math.floor(hrs / 24);
-    if (days < 7) return `${days}d ago`;
-    return new Date(dateStr).toLocaleDateString();
   }
 
   function projectName(p) {
@@ -108,37 +93,6 @@
                 <div class="project-name">{projectName(proj)}</div>
                 <div class="project-meta">{proj.conversation_count || 0} session{proj.conversation_count !== 1 ? "s" : ""}</div>
               </div>
-            </button>
-          {/each}
-        </div>
-      </div>
-    {/if}
-
-    <!-- Recent conversations -->
-    {#if conversations.length > 0}
-      <div class="section">
-        <div class="section-header">
-          <h3>Recent conversations</h3>
-          <span class="section-count">{conversations.length}</span>
-        </div>
-        <div class="conv-list">
-          {#each [...conversations].sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || "")).slice(0, 8) as conv (conv.id)}
-            <button class="conv-row" onclick={() => onSelectConversation(conv.id)}>
-              <div class="conv-row-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
-                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-                </svg>
-              </div>
-              <div class="conv-row-info">
-                <div class="conv-row-title">{conv.title || "Untitled"}</div>
-                <div class="conv-row-meta">
-                  {conv.message_count ?? conv.messages?.length ?? 0} message{(conv.message_count ?? conv.messages?.length ?? 0) !== 1 ? "s" : ""}
-                  {#if !conv.directory}
-                    <span class="conv-row-badge">No project</span>
-                  {/if}
-                </div>
-              </div>
-              <span class="conv-row-time">{timeAgo(conv.updated_at)}</span>
             </button>
           {/each}
         </div>
@@ -294,41 +248,6 @@
   }
   .project-meta {
     font-size: 11px; color: var(--muted); margin-top: 1px;
-  }
-
-  /* ── Conversation list ── */
-  .conv-list { display: flex; flex-direction: column; gap: 2px; }
-  .conv-row {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 10px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background .1s;
-    border: none; background: none; width: 100%; text-align: left;
-    color: var(--text);
-  }
-  .conv-row:hover { background: var(--surface2); }
-  .conv-row-icon {
-    width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    color: var(--muted);
-  }
-  .conv-row-icon svg { width: 15px; height: 15px; }
-  .conv-row-info { flex: 1; min-width: 0; }
-  .conv-row-title {
-    font-size: 13px; color: var(--text);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .conv-row-meta {
-    font-size: 11px; color: var(--muted); margin-top: 1px;
-    display: flex; align-items: center; gap: 6px;
-  }
-  .conv-row-badge {
-    font-size: 10px; padding: 0 5px; border-radius: 3px;
-    background: var(--surface2); border: 1px solid var(--border-light);
-    color: var(--muted);
-  }
-  .conv-row-time {
-    font-size: 11px; color: var(--muted); flex-shrink: 0;
   }
 
   @media (max-width: 600px) {

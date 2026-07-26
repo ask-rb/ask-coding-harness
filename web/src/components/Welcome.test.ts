@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 // ── Welcome component prop interface tests ──
 
@@ -7,33 +7,25 @@ describe("Welcome component", () => {
     const props = {
       newChat: vi.fn(),
       projects: [{ directory: "/test/a", name: "Project A", conversation_count: 3 }],
-      conversations: [{ id: "1", title: "Chat", messages: [{ role: "user" as const, content: "hi" }], message_count: 1 }],
       onStartProject: vi.fn(),
       onSend: vi.fn(),
-      onSelectConversation: vi.fn(),
     };
     expect(props.newChat).toBeDefined();
     expect(props.onStartProject).toBeDefined();
     expect(props.onSend).toBeDefined();
-    expect(props.onSelectConversation).toBeDefined();
     expect(props.projects).toHaveLength(1);
     expect(props.projects[0].name).toBe("Project A");
     expect(props.projects[0].conversation_count).toBe(3);
-    expect(props.conversations).toHaveLength(1);
-    expect(props.conversations[0].title).toBe("Chat");
   });
 
   it("handles empty arrays", () => {
     const props = {
       newChat: vi.fn(),
       projects: [],
-      conversations: [],
       onStartProject: vi.fn(),
       onSend: vi.fn(),
-      onSelectConversation: vi.fn(),
     };
     expect(props.projects).toHaveLength(0);
-    expect(props.conversations).toHaveLength(0);
   });
 });
 
