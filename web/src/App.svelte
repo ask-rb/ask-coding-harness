@@ -29,12 +29,12 @@
 
   $: projects.set(projectsList);
 
-  onMount(() => {
-    loadTheme();
-    loadProjects();
-    loadConversations().then(() => restoreConversation());
-    loadFileList();
-    loadConfig();
+	  onMount(() => {
+	    loadTheme();
+	    loadProjects();
+	    loadConversations();
+	    loadFileList();
+	    loadConfig();
     checkMobile();
     checkConnection();
     handleRoute();
