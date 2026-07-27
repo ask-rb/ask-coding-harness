@@ -56,6 +56,9 @@
   let dragOver = false;
   let dragCount = 0;
 
+  // Image previews (from drag/paste)
+  let imagePreviews: Array<{ name: string; dataUrl: string }> = [];
+
   $: matchingIndices = searchTerm
     ? messages.reduce<number[]>((acc, msg, i) => {
         if (msg.content.toLowerCase().includes(searchTerm.toLowerCase())) acc.push(i);
@@ -258,26 +261,69 @@
     dragCount = 0;
     if (!e.dataTransfer?.files || e.dataTransfer.files.length === 0) return;
 
-    const parts: string[] = [];
+    const textParts: string[] = [];
     for (const file of Array.from(e.dataTransfer.files)) {
+      // Handle images — show thumbnail preview
+      if (file.type.startsWith("image/")) {
+        try {
+          const dataUrl = await readFileAsDataUrl(file);
+          imagePreviews = [...imagePreviews, { name: file.name, dataUrl }];
+          textParts.push(`📷 ${file.name}`);
+        } catch {
+          textParts.push(`📷 ${file.name} [unable to load]`);
+        }
+        continue;
+      }
+      // Handle text files
       if (file.size > 1_000_000) {
-        parts.push(`📄 ${file.name}\n\`\`\`\n[File too large: ${(file.size / 1024 / 1024).toFixed(1)} MB — max 1 MB]\n\`\`\``);
+        textParts.push(`📄 ${file.name}\n\`\`\`\n[File too large: ${(file.size / 1024 / 1024).toFixed(1)} MB — max 1 MB]\n\`\`\``);
         continue;
       }
       try {
         const text = await readFileContent(file);
-        parts.push(`📄 ${file.name}\n\`\`\`\n${text}\n\`\`\``);
+        textParts.push(`📄 ${file.name}\n\`\`\`\n${text}\n\`\`\``);
       } catch {
-        parts.push(`📄 ${file.name}\n\`\`\`\n[Unable to read file — binary or unsupported format]\n\`\`\``);
+        textParts.push(`📄 ${file.name}\n\`\`\`\n[Unable to read file — binary or unsupported format]\n\`\`\``);
       }
     }
-    if (parts.length > 0) {
-      inputValue = (inputValue ? inputValue + "\n\n" : "") + parts.join("\n\n");
+    if (textParts.length > 0) {
+      inputValue = (inputValue ? inputValue + "\n\n" : "") + textParts.join("\n\n");
       if (inputEl) {
         inputEl.focus();
         inputEl.selectionStart = inputEl.selectionEnd = inputValue.length;
       }
     }
+  }
+
+  function removeImage(index: number) {
+    imagePreviews = imagePreviews.filter((_, i) => i !== index);
+  }
+
+  // Handle paste events for images
+  function handlePaste(e: ClipboardEvent) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) continue;
+        readFileAsDataUrl(file).then(dataUrl => {
+          imagePreviews = [...imagePreviews, { name: file.name || "pasted-image.png", dataUrl }];
+          inputValue = (inputValue ? inputValue + "\n\n" : "") + "📷 pasted-image.png";
+        });
+        break;
+      }
+    }
+  }
+
+  function readFileAsDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
   }
 
   function readFileContent(file: File): Promise<string> {
@@ -373,6 +419,18 @@
     </div>
   {/if}
 
+  {#if imagePreviews.length > 0}
+    <div class="image-previews">
+      {#each imagePreviews as img, i}
+        <div class="img-preview">
+          <img src={img.dataUrl} alt={img.name} />
+          <span class="img-name">{img.name}</span>
+          <button class="img-remove" onclick={() => removeImage(i)} title="Remove image">×</button>
+        </div>
+      {/each}
+    </div>
+  {/if}
+
   <div class="input-area">
     <div class="input-row">
       <button class="action-btn attach-btn" onclick={() => { showFilePanel = !showFilePanel; fileSearch = ""; }} title="Attach files">
@@ -386,6 +444,7 @@
         placeholder={placeholderText}
         onkeydown={handleKey}
         oninput={handleInput}
+        onpaste={handlePaste}
         disabled={isStreaming}
         rows="1"
       ></textarea>
@@ -521,6 +580,27 @@
   .chip-remove:hover { color: var(--danger); }
   .clear-chips { background: none; border: none; cursor: pointer; font-size: 11px; color: var(--muted); padding: 2px 6px; }
   .clear-chips:hover { color: var(--text); }
+
+  /* Image previews */
+  .image-previews {
+    display: flex; gap: 8px; padding: 8px 16px 4px; overflow-x: auto; flex-shrink: 0;
+  }
+  .img-preview {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    position: relative; flex-shrink: 0;
+  }
+  .img-preview img {
+    width: 64px; height: 64px; object-fit: cover; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--surface2);
+  }
+  .img-name { font-size: 9px; color: var(--muted); max-width: 64px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
+  .img-remove {
+    position: absolute; top: -6px; right: -6px; width: 18px; height: 18px;
+    border-radius: 50%; border: 1px solid var(--border); background: var(--surface);
+    color: var(--muted); cursor: pointer; font-size: 11px; line-height: 1;
+    display: flex; align-items: center; justify-content: center; padding: 0;
+  }
+  .img-remove:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
 
   /* ── Input area ── */
   .input-area {

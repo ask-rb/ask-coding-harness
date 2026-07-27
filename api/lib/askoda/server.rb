@@ -12,6 +12,26 @@ module Askoda
   # Shared adapter instance (set from config.ru, accessed by routes)
   @_adapter = nil
 
+  # A no-op adapter used when no coding provider has been configured.
+  # Allows the UI to load and show a friendly "not configured" message
+  # instead of crashing at boot.
+  class NullAdapter
+    def initialize; @counter = 0; end
+    def list_projects; []; end
+    def find_sessions(directory:, limit: 20); []; end
+    def session_history(session_id, limit: 100); []; end
+    def recent_sessions; []; end
+    def start; end
+    def stop; end
+    def running?; false; end
+    def create_session(*); @counter += 1; "null_sess_#{@counter}"; end
+    def send_and_stream(*, &block)
+      block&.call({ type: "turn.failed", seq: 3, payload: { "error" => { "message" => "No coding provider configured. Set ACP_COMMAND or CODING_PROVIDER in .env" }, "sessionId" => "" } })
+    end
+    def subscribe(*); { "eventSeq" => 0 }; end
+    def resume_session(*); {}; end
+  end
+
   # File listing cache (module-level so it persists across Roda instances)
   @file_list_cache = nil
   @file_list_cache_time = nil

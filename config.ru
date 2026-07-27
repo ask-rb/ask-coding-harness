@@ -13,17 +13,19 @@ if File.exist?(File.expand_path(".env"))
   end
 end
 
-# Create the coding provider adapter once at startup and share it across all
-# requests. This avoids spawning a new subprocess (e.g. +opencode acp+) on
-# every request, which would leak orphan processes and waste memory/CPU.
-#
-# Previously the adapter was created inside the Rack::Unreloader block (dev
-# path), causing +@app_block.call+ to create a new adapter + subprocess on
-# every HTTP request — accumulating 80+ orphan processes in ~30 minutes.
-adapter = Askoda::Server.build_provider_adapter
-adapter.start
-at_exit { adapter.stop rescue nil }
-Askoda._adapter = adapter
+# Create the coding provider adapter at startup.  If none is configured
+# (ACP_COMMAND missing, etc.), fall back to a no-op adapter so the
+# frontend UI still loads and the user can configure things from settings.
+begin
+  adapter = Askoda::Server.build_provider_adapter
+  adapter.start
+  at_exit { adapter.stop rescue nil }
+  Askoda._adapter = adapter
+rescue => e
+  $stderr.puts "[askoda] WARNING: No coding adapter configured (#{e.message})"
+  $stderr.puts "[askoda] The UI will load but chat requires a provider."
+  Askoda._adapter = Askoda::NullAdapter.new
+end
 
 if ENV.fetch("RACK_ENV", "development") == "development"
   # Auto-reload on file changes (development only)

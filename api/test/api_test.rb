@@ -390,4 +390,24 @@ class ApiTest < Minitest::Test
     ids = JSON.parse(last_response.body).map { |c| c["id"] }
     assert_includes ids, cid, "Archived conversation should show with ?archived=true"
   end
+
+  # ── NullAdapter tests ──
+
+  def test_null_adapter_returns_projects
+    old = Askoda._adapter
+    Askoda._adapter = Askoda::NullAdapter.new
+    get "/api/projects"
+    assert_equal 200, last_response.status
+    assert_kind_of Array, JSON.parse(last_response.body)
+    Askoda._adapter = old
+  end
+
+  def test_null_adapter_chat_returns_error
+    old = Askoda._adapter
+    Askoda._adapter = Askoda::NullAdapter.new
+    post "/api/chat", { message: "hello" }.to_json, { "CONTENT_TYPE" => "application/json" }
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, "No coding provider configured"
+    Askoda._adapter = old
+  end
 end

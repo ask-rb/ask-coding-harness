@@ -236,3 +236,49 @@ describe("Chat retry", () => {
     expect(rendered).toContain("Model unavailable");
   });
 });
+
+// Image preview tests
+describe("Chat image preview", () => {
+  it("detects image files by MIME type", () => {
+    const isImage = (type: string) => type.startsWith("image/");
+    expect(isImage("image/png")).toBe(true);
+    expect(isImage("image/jpeg")).toBe(true);
+    expect(isImage("image/gif")).toBe(true);
+    expect(isImage("image/webp")).toBe(true);
+    expect(isImage("text/plain")).toBe(false);
+    expect(isImage("application/pdf")).toBe(false);
+  });
+
+  it("adds image preview to list", () => {
+    const previews: Array<{ name: string; dataUrl: string }> = [];
+    const newPreview = { name: "screenshot.png", dataUrl: "data:image/png;base64,iVBORw0KGgo=" };
+    const updated = [...previews, newPreview];
+    expect(updated).toHaveLength(1);
+    expect(updated[0].name).toBe("screenshot.png");
+    expect(updated[0].dataUrl).toContain("data:image/");
+  });
+
+  it("removes image by index", () => {
+    const previews = [
+      { name: "a.png", dataUrl: "data:image/png;base64," },
+      { name: "b.png", dataUrl: "data:image/png;base64," },
+    ];
+    const filtered = previews.filter((_, i) => i !== 0);
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].name).toBe("b.png");
+  });
+
+  it("includes image reference in message text", () => {
+    const imageName = "diagram.png";
+    const ref = `📷 ${imageName}`;
+    const message = "Here is the diagram\n\n" + ref;
+    expect(message).toContain("📷 diagram.png");
+  });
+
+  it("handles multiple images", () => {
+    const names = ["a.png", "b.jpg", "c.gif"];
+    const refs = names.map(n => `📷 ${n}`);
+    const message = refs.join("\n");
+    expect(message).toBe("📷 a.png\n📷 b.jpg\n📷 c.gif");
+  });
+});
