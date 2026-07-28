@@ -23,7 +23,7 @@ begin
   Askoda._adapter = adapter
 rescue => e
   $stderr.puts "[askoda] WARNING: No coding adapter configured (#{e.message})"
-  $stderr.puts "[askoda] The UI will load but chat requires a provider."
+  $stderr.puts "[askoda] Defaulting to NullAdapter. Set CODING_PROVIDER=ask_agent or ACP_COMMAND in .env"
   Askoda._adapter = Askoda::NullAdapter.new
 end
 

@@ -26,7 +26,7 @@ module Askoda
     def running?; false; end
     def create_session(*); @counter += 1; "null_sess_#{@counter}"; end
     def send_and_stream(*, &block)
-      block&.call({ type: "turn.failed", seq: 3, payload: { "error" => { "message" => "No coding provider configured. Set ACP_COMMAND or CODING_PROVIDER in .env" }, "sessionId" => "" } })
+      block&.call({ type: "turn.failed", seq: 3, payload: { "error" => { "message" => "No coding provider configured. Set CODING_PROVIDER=ask_agent or ACP_COMMAND in .env" }, "sessionId" => "" } })
     end
     def subscribe(*); { "eventSeq" => 0 }; end
     def resume_session(*); {}; end
@@ -78,7 +78,7 @@ module Askoda
     MAX_FILE_SIZE = 1_048_576 # 1 MB
 
     def self.build_provider_adapter
-      provider = ENV.fetch("CODING_PROVIDER", "acp")
+      provider = ENV.fetch("CODING_PROVIDER", "ask_agent")
       Ask::CodingProviders.build_adapter(
         provider,
         workspace_path: Dir.pwd,

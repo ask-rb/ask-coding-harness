@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import "ask-ui-kit";
   import type { Message as Msg } from "../lib/api";
 
   export let msg: Msg;
@@ -110,6 +111,7 @@
     <div class="msg-avatar">🤖</div>
   {/if}
   <div class="msg-bubble">
+    <ask-message role={msg.role} content={msg.content}></ask-message>
     {#if editing}
       <textarea class="edit-textarea" bind:value={editContent}></textarea>
       <div class="edit-actions">
