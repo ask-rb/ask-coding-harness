@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import "ask-ui-kit";
+	  import "@ask-rb/ask-ui-kit";
   import type { Message as Msg } from "../lib/api";
 
   export let msg: Msg;
