@@ -152,7 +152,8 @@
   .msg.user { flex-direction: row-reverse; }
   .msg-avatar { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; background: var(--surface2); }
   .msg-bubble {
-    padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.6;
+    padding: 0;
+    border-radius: 12px; font-size: 14px; line-height: 1.6;
     max-width: 85%; word-wrap: break-word; position: relative;
   }
   .msg.user .msg-bubble { background: var(--user-bg); color: var(--user-text); border-bottom-right-radius: 4px; }
