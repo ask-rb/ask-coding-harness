@@ -1,76 +1,70 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-	  import "@ask-rb/ask-ui-kit";
-  import type { Message as Msg } from "../lib/api";
+	import { onMount } from "svelte";
+		import "ask-ui-kit";
+	import type { Message as Msg } from "../lib/api";
 
-  export let msg: Msg;
-  export let index: number = 0;
-  export let onEdit: (index: number, content: string) => void = () => {};
-  export let onDelete: (index: number) => void = () => {};
-  export let onRetry: (index: number) => void = () => {};
-  export let searchTerm: string = "";
+	export let msg: Msg;
+	export let index: number = 0;
+	export let onEdit: (index: number, content: string) => void = () => {};
+	export let onDelete: (index: number) => void = () => {};
+	export let onRetry: (index: number) => void = () => {};
+	export let searchTerm: string = "";
 
-  let markedFn: any = null;
-  let rendered = "";
-  let editing = false;
-  let editContent = "";
-  let deleteConfirm = false;
+	let markedFn: any = null;
+	let rendered = "";
+	let editing = false;
+	let editContent = "";
+	let deleteConfirm = false;
 
-  onMount(async () => {
-    const mod = await import("https://cdn.jsdelivr.net/npm/marked@15/+esm");
-    markedFn = mod.marked;
-    renderContent();
-  });
+	onMount(async () => {
+		const mod = await import("https://cdn.jsdelivr.net/npm/marked@15/+esm");
+		markedFn = mod.marked;
+		renderContent();
+	});
 
-  function renderContent() {
-    if (markedFn) {
-      rendered = markedFn.parse(msg.content, { breaks: true });
-    }
-  }
+	function renderContent() {
+		if (markedFn) {
+			rendered = markedFn.parse(msg.content, { breaks: true });
+		}
+	}
 
-  $: if (markedFn && msg.content) {
-    renderContent();
-  }
+	$: if (markedFn && msg.content) {
+		renderContent();
+	}
 
-  $: isError = msg.role === "assistant" && msg.content.startsWith("Error:");
+	$: isError = msg.role === "assistant" && msg.content.startsWith("Error:");
 
-  function highlightText(html: string, term: string): string {
-    if (!term) return html;
-    try {
-      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      return html.replace(new RegExp(`(${escaped})`, "gi"), "<mark class=\"search-highlight\">$1</mark>");
-    } catch { return html; }
-  }
+	function highlightText(html: string, term: string): string {
+		if (!term) return html;
+		try {
+			const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+			return html.replace(new RegExp(`(${escaped})`, "gi"), "<mark class=\"search-highlight\">$1</mark>");
+		} catch { return html; }
+	}
 
-  $: displayHtml = searchTerm ? highlightText(rendered, searchTerm) : rendered;
+	$: displayHtml = searchTerm ? highlightText(rendered, searchTerm) : rendered;
 
-  function copyButtons(node: HTMLElement) {
-    function addButtons() {
-      node.querySelectorAll("pre").forEach((pre) => {
-        if (pre.querySelector(".copy-btn")) return;
-        const code = (pre.querySelector("code")?.textContent || "").trim();
-        if (!code) return;
-        pre.style.position = "relative";
-        const btn = document.createElement("button");
-        btn.className = "copy-btn";
-        btn.textContent = "📋";
-        btn.setAttribute("aria-label", "Copy code");
-        btn.onclick = async (e) => {
-          e.stopPropagation();
-          try {
-            await navigator.clipboard.writeText(code);
-            btn.textContent = "✅";
-            setTimeout(() => { btn.textContent = "📋"; }, 2000);
-          } catch { /* clipboard not available */ }
-        };
-        pre.prepend(btn);
-      });
-    }
-    addButtons();
-    const observer = new MutationObserver(addButtons);
-    observer.observe(node, { childList: true, subtree: true });
-    return { destroy() { observer.disconnect(); } };
-  }
+	function upgradeCodeBlocks(node: HTMLElement) {
+		function upgrade() {
+			node.querySelectorAll("pre").forEach((pre) => {
+				if (pre.querySelector("ask-code-block")) return;
+				const code = pre.querySelector("code");
+				const text = code?.textContent || pre.textContent || "";
+				const lang = code?.className?.replace(/^language-/, "") || "";
+				const wrapper = document.createElement("div");
+				wrapper.className = "my-2";
+				const cb = document.createElement("ask-code-block");
+				cb.setAttribute("code", text);
+				if (lang) cb.setAttribute("language", lang);
+				wrapper.appendChild(cb);
+				pre.parentNode?.replaceChild(wrapper, pre);
+			});
+		}
+		upgrade();
+		const observer = new MutationObserver(upgrade);
+		observer.observe(node, { childList: true, subtree: true });
+		return { destroy() { observer.disconnect(); } };
+	}
 
   function startEdit() {
     editContent = msg.content;
@@ -107,9 +101,7 @@
 </script>
 
 <div class="msg {msg.role}" class:editing>
-  {#if msg.role === "assistant"}
-    <div class="msg-avatar">🤖</div>
-  {/if}
+  <ask-avatar role={msg.role} name={msg.role === 'user' ? '' : 'Assistant'}></ask-avatar>
   <div class="msg-bubble">
     <ask-message role={msg.role} content={msg.content}></ask-message>
     {#if editing}
@@ -127,8 +119,8 @@
         </div>
       </div>
     {:else}
-        {#if rendered}
-          <div class="markdown" use:copyButtons>
+	      {#if rendered}
+	          <div class="markdown" use:upgradeCodeBlocks>
             {@html displayHtml}
           </div>
       {:else}
@@ -150,7 +142,6 @@
 <style>
   .msg { display: flex; gap: 10px; padding: 8px 16px; max-width: 800px; margin: 0 auto; }
   .msg.user { flex-direction: row-reverse; }
-  .msg-avatar { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; background: var(--surface2); }
   .msg-bubble {
     padding: 0;
     border-radius: 12px; font-size: 14px; line-height: 1.6;
@@ -169,15 +160,6 @@
   :global(.msg-bubble a) { color: var(--accent); text-decoration: none; }
   :global(.msg-bubble a:hover) { text-decoration: underline; }
   :global(.msg-bubble h1), :global(.msg-bubble h2), :global(.msg-bubble h3), :global(.msg-bubble h4) { margin: 12px 0 6px; line-height: 1.3; }
-
-  :global(.copy-btn) {
-    position: absolute; top: 6px; right: 6px; z-index: 5;
-    padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border);
-    background: var(--surface2); color: var(--muted); cursor: pointer;
-    font-size: 12px; line-height: 1.6; opacity: 0; transition: opacity .1s;
-  }
-  :global(pre:hover .copy-btn) { opacity: 1; }
-  :global(.copy-btn:hover) { background: var(--accent); color: #fff; border-color: var(--accent); opacity: 1; }
 
   .msg-actions {
     display: none; gap: 4px; margin-top: 6px; justify-content: flex-end;
