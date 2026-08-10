@@ -1,11 +1,10 @@
-// Askoda service worker — caches built assets for instant loading.
-const CACHE = "askoda-v1";
+// ask-coding-harness service worker — caches built assets for instant
+// loading and an offline shell.
+const CACHE = "ach-v1";
 const ASSETS = ["/", "/manifest.json", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(ASSETS))
-  );
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));
   self.skipWaiting();
 });
 
@@ -15,14 +14,9 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
-
-  // Only cache same-origin GET requests
   if (event.request.method !== "GET" || url.origin !== location.origin) return;
-
-  // Don't cache API calls
+  // Never cache API calls — the agent's stream is live.
   if (url.pathname.startsWith("/api/")) return;
-
-  // Network-first for HTML, cache-first for assets
   if (url.pathname === "/" || url.pathname.endsWith(".html")) {
     event.respondWith(networkFirst(event.request));
   } else {

@@ -1,128 +1,165 @@
 <script lang="ts">
-  import { theme, toggleTheme, currentModel, availableModels } from "../lib/stores";
+  import type { ConfigResponse } from "../lib/types";
 
-  export let open = false;
-  export let onClose: () => void;
-  export let connected = false;
+  let { config, onClose } = $props<{ config: ConfigResponse | null; onClose: () => void }>();
 
-  let version = "0.1.0";
-  let adapterInfo = "Unknown";
+  let model = $state(localStorage.getItem("ach_model") || config?.defaultModel || "");
+  const saved = $derived(model !== (localStorage.getItem("ach_model") || config?.defaultModel || ""));
 
-  async function loadInfo() {
-    try {
-      const res = await fetch("/api/projects");
-      if (res.ok) adapterInfo = "Connected";
-    } catch { adapterInfo = "Disconnected"; }
-  }
-
-  function close() {
-    open = false;
-    onClose();
-  }
-
-  $: if (open) {
-    loadInfo();
+  function selectModel(m: string) {
+    model = m;
+    localStorage.setItem("ach_model", m);
   }
 </script>
 
-{#if open}
-  <div class="settings-overlay" onclick={close} />
-  <aside class="settings-panel">
-    <div class="settings-header">
+<div class="overlay" onclick={onClose}>
+  <div class="panel" onclick={(e) => e.stopPropagation()}>
+    <div class="head">
       <h2>Settings</h2>
-      <button class="close-btn" onclick={close}>✕</button>
+      <button class="close" onclick={onClose}>✕</button>
     </div>
 
-    <div class="settings-body">
+    {#if config}
       <section>
-        <h3>Model</h3>
-        <div class="setting-row">
-          <span>Coding model</span>
-          <select class="model-select" bind:value={$currentModel}>
-            {#each $availableModels as model}
-              <option value={model}>{model}</option>
-            {/each}
-          </select>
+        <h3>Workspace</h3>
+        <div class="row">
+          <span class="label">Name</span>
+          <span class="value mono">{config.workspace.name}</span>
         </div>
-        <div class="setting-hint">Model for coding agent responses. Takes effect on the next message.</div>
-      </section>
-
-      <section>
-        <h3>Appearance</h3>
-        <div class="setting-row">
-          <span>Theme</span>
-          <button class="toggle-btn" onclick={toggleTheme}>
-            {$theme === "dark" ? "☾ Dark" : "☀ Light"}
-          </button>
+        <div class="row">
+          <span class="label">Root</span>
+          <span class="value mono">{config.workspace.root}</span>
         </div>
-      </section>
-
-      <section>
-        <h3>Status</h3>
-        <div class="setting-row">
-          <span>Connection</span>
-          <span class="status-badge" class:online={connected}>
-            {connected ? "● Online" : "○ Offline"}
+        <div class="row">
+          <span class="label">Git branch</span>
+          <span class="value">{config.workspace.gitBranch ?? "—"}</span>
+        </div>
+        <div class="row">
+          <span class="label">Agent</span>
+          <span class="value mono">{config.currentAdapter}</span>
+        </div>
+        <div class="row">
+          <span class="label">Features</span>
+          <span class="value">
+            {#if config.features.approvals}approvals · {/if}
+            {#if config.features.planMode}plan mode · {/if}
+            {#if config.features.todos}todos{/if}
           </span>
         </div>
-        <div class="setting-row">
-          <span>Coding agent</span>
-          <span class="status-text">{adapterInfo}</span>
-        </div>
       </section>
 
       <section>
-        <h3>About</h3>
-        <div class="setting-row">
-          <span>Version</span>
-          <span class="status-text">{version}</span>
+        <h3>Model</h3>
+        <div class="models">
+          {#each config.models as m (m)}
+            <button class="model {m === model ? "active" : ""}" onclick={() => selectModel(m)}>{m}</button>
+          {/each}
         </div>
-        <div class="setting-row">
-          <span>Source</span>
-          <a href="https://github.com/ask-rb/askoda" target="_blank" rel="noopener" class="link">github.com/ask-rb/askoda</a>
-        </div>
-        <div class="about-text">
-          Askoda connects AI coding agents to chat interfaces and web UIs. Licensed under MIT.
-        </div>
+        {#if saved}
+          <p class="hint">Saved locally. New messages use this model.</p>
+        {/if}
       </section>
-    </div>
-  </aside>
-{/if}
+    {:else}
+      <p class="hint">No server config available.</p>
+    {/if}
+  </div>
+</div>
 
 <style>
-  .settings-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 150; }
-  .settings-panel {
-    position: fixed; top: 0; right: 0; bottom: 0; width: 320px; max-width: 90vw;
-    background: var(--surface); border-left: 1px solid var(--border);
-    display: flex; flex-direction: column; z-index: 151;
-    animation: slideIn .2s ease;
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 50;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 10vh 1rem 1rem;
   }
-  @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+  .panel {
+    width: min(30rem, 100%);
+    max-height: 80vh;
+    overflow-y: auto;
+    background: #131316;
+    border: 1px solid #2a2a2e;
+    border-radius: 1rem;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  }
+  .head {
+    display: flex;
+    align-items: center;
+    padding: 1rem 1.25rem 0.5rem;
+  }
+  .head h2 {
+    margin: 0;
+    font-size: 1.0625rem;
+  }
+  .close {
+    margin-left: auto;
+    width: 2rem;
+    height: 2rem;
+    border: none;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: #a3a3a3;
+    cursor: pointer;
+    font-size: 0.875rem;
+  }
+  .close:hover { background: #1f1f22; }
 
-  .settings-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 20px; border-bottom: 1px solid var(--border);
+  section {
+    padding: 0.75rem 1.25rem 1rem;
+    border-top: 1px solid #1f1f22;
   }
-  .settings-header h2 { font-size: 16px; font-weight: 600; margin: 0; }
-  .close-btn { width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
-  .close-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  section h3 {
+    margin: 0 0 0.5rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #a3a3a3;
+  }
+  .row {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.25rem 0;
+    font-size: 0.8125rem;
+  }
+  .label {
+    color: #737373;
+    width: 6rem;
+    flex-shrink: 0;
+  }
+  .value { color: #e5e5e5; overflow-wrap: anywhere; }
+  .mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.75rem;
+  }
 
-  .settings-body { flex: 1; overflow-y: auto; padding: 8px 0; }
-  section { padding: 12px 20px; }
-  section h3 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 8px; }
-  .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; font-size: 14px; }
-  .toggle-btn { padding: 4px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); cursor: pointer; font-size: 13px; }
-  .toggle-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .status-badge { font-size: 12px; padding: 2px 8px; border-radius: 4px; }
-  .status-badge.online { color: var(--success); }
-  .status-badge:not(.online) { color: var(--muted); }
-  .status-text { font-size: 13px; color: var(--muted); }
-  .link { font-size: 13px; color: var(--accent); text-decoration: none; }
-  .link:hover { text-decoration: underline; }
-  .about-text { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
-  .model-select {
-    padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border);
-    background: var(--surface2); color: var(--text); font-size: 13px; max-width: 200px;
+  .models {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
   }
-  .setting-hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .model {
+    font: inherit;
+    font-size: 0.75rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    padding: 0.375rem 0.625rem;
+    border-radius: 0.5rem;
+    border: 1px solid #2a2a2e;
+    background: #161618;
+    color: #d4d4d4;
+    cursor: pointer;
+  }
+  .model.active {
+    border-color: #2f6feb;
+    background: #1d3a63;
+    color: #fff;
+  }
+
+  .hint {
+    font-size: 0.75rem;
+    color: #737373;
+    margin: 0.5rem 0 0;
+  }
 </style>

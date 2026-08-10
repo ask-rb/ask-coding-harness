@@ -1,6 +1,7 @@
 {
-  "name": "Askoda",
-  "short_name": "Askoda",
+  "name": "ask-coding-harness",
+  "short_name": "ACH",
+  "description": "General-purpose coding agent in the browser",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0b0b0c",

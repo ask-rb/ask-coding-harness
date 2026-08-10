@@ -1,138 +1,98 @@
+import type { ConfigResponse, Conversation, Message, TurnState } from "./types";
+
 const BASE = "";
 
-export interface Project {
-  directory: string;
-  name: string;
-  conversation_count: number;
-}
-
-export interface ProjectSession {
-  id: string;
-  title: string;
-  updated_at?: string;
-  message_count?: number;
-}
-
-export interface Message {
-  role: "user" | "assistant";
-  content: string;
-  created_at?: string;
-}
-
-export interface Conversation {
-  id: string;
-  title: string;
-  directory?: string;
-  message_count?: number;
-  messages: Message[];
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface FileListResponse {
-  files: string[];
-}
-
-export interface FileContentResponse {
-  path: string;
-  content: string;
-}
-
-export async function fetchFileList(): Promise<string[]> {
-  const res = await fetch(`${BASE}/api/files`);
-  if (!res.ok) throw new Error(`Failed to fetch file list: ${res.status}`);
-  const data: FileListResponse = await res.json();
-  return data.files || [];
-}
-
-export async function fetchFileContent(path: string): Promise<FileContentResponse> {
-  const res = await fetch(`${BASE}/api/files/read?path=${encodeURIComponent(path)}`);
-  if (!res.ok) throw new Error(`Failed to fetch file content: ${res.status}`);
-  return await res.json();
-}
-
-export async function fetchProjects(): Promise<Project[]> {
-  const res = await fetch(`${BASE}/api/projects`);
-  if (!res.ok) throw new Error(`Failed to fetch projects: ${res.status}`);
-  const data = await res.json();
-  return Array.isArray(data) ? data : [];
-}
-
-export async function fetchSessions(projectDir: string): Promise<ProjectSession[]> {
-  const encoded = encodeURIComponent(projectDir);
-  const res = await fetch(`${BASE}/api/projects/${encoded}/sessions`);
-  if (!res.ok) throw new Error(`Failed to fetch sessions: ${res.status}`);
-  return await res.json();
-}
-
-export async function fetchConversation(id: string): Promise<Conversation> {
-  const res = await fetch(`${BASE}/api/conversations/${id}`);
-  if (!res.ok) throw new Error(`Failed to fetch conversation: ${res.status}`);
-  return await res.json();
-}
-
-export async function fetchConversations(): Promise<Conversation[]> {
-  const res = await fetch(`${BASE}/api/conversations`);
-  if (!res.ok) throw new Error(`Failed to fetch conversations: ${res.status}`);
-  return await res.json();
-}
-
-export async function editMessage(conversationId: string, index: number, content: string): Promise<Conversation> {
-  const res = await fetch(`${BASE}/api/conversations/${conversationId}/messages/${index}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content }),
-  });
-  if (!res.ok) throw new Error(`Failed to edit message: ${res.status}`);
-  return await res.json();
-}
-
-export async function deleteMessagesFrom(conversationId: string, index: number): Promise<Conversation> {
-  const res = await fetch(`${BASE}/api/conversations/${conversationId}/messages/${index}`, {
-    method: "DELETE",
-  });
-  if (!res.ok) throw new Error(`Failed to delete messages: ${res.status}`);
-  return await res.json();
-}
-
-export async function renameConversation(conversationId: string, title: string): Promise<{ id: string; title: string }> {
-  const res = await fetch(`${BASE}/api/conversations/${conversationId}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title }),
-  });
-  if (!res.ok) throw new Error(`Failed to rename conversation: ${res.status}`);
-  return await res.json();
-}
-
-export async function archiveConversation(conversationId: string): Promise<{ id: string; archived: boolean }> {
-  const res = await fetch(`${BASE}/api/conversations/${conversationId}/archive`, {
-    method: "POST",
-  });
-  if (!res.ok) throw new Error(`Failed to archive conversation: ${res.status}`);
-  return await res.json();
-}
-
-export interface ConfigResponse {
-  models: string[];
-  defaultModel: string;
-  currentAdapter: string;
+async function json<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `HTTP ${res.status}`);
+  }
+  return res.json();
 }
 
 export async function fetchConfig(): Promise<ConfigResponse> {
-  const res = await fetch(`${BASE}/api/config`);
-  if (!res.ok) throw new Error(`Failed to fetch config: ${res.status}`);
-  return await res.json();
+  return json(await fetch(`${BASE}/api/config`));
 }
 
-export function sendChatMessage(
+export async function fetchConversations(): Promise<Conversation[]> {
+  return json(await fetch(`${BASE}/api/conversations`));
+}
+
+export async function fetchConversation(id: string): Promise<Conversation> {
+  return json(await fetch(`${BASE}/api/conversations/${id}`));
+}
+
+export async function renameConversation(id: string, title: string): Promise<void> {
+  await json(
+    await fetch(`${BASE}/api/conversations/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    })
+  );
+}
+
+export async function deleteConversation(id: string): Promise<void> {
+  await json(await fetch(`${BASE}/api/conversations/${id}`, { method: "DELETE" }));
+}
+
+export async function archiveConversation(id: string): Promise<void> {
+  await json(await fetch(`${BASE}/api/conversations/${id}/archive`, { method: "POST" }));
+}
+
+export async function editMessage(id: string, index: number, content: string): Promise<void> {
+  await json(
+    await fetch(`${BASE}/api/conversations/${id}/messages/${index}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    })
+  );
+}
+
+export async function deleteMessagesFrom(id: string, index: number): Promise<void> {
+  await json(await fetch(`${BASE}/api/conversations/${id}/messages/${index}`, { method: "DELETE" }));
+}
+
+export async function approveAction(id: string, actionId: number): Promise<void> {
+  await json(await fetch(`${BASE}/api/conversations/${id}/approvals/${actionId}/approve`, { method: "POST" }));
+}
+
+export async function rejectAction(id: string, actionId: number): Promise<void> {
+  await json(await fetch(`${BASE}/api/conversations/${id}/approvals/${actionId}/reject`, { method: "POST" }));
+}
+
+export async function approveAll(id: string): Promise<void> {
+  await json(await fetch(`${BASE}/api/conversations/${id}/approvals/approve-all`, { method: "POST" }));
+}
+
+export async function approvePlan(id: string): Promise<void> {
+  await json(await fetch(`${BASE}/api/conversations/${id}/plan/approve`, { method: "POST" }));
+}
+
+export async function rejectPlan(id: string): Promise<void> {
+  await json(await fetch(`${BASE}/api/conversations/${id}/plan/reject`, { method: "POST" }));
+}
+
+export async function abortTurn(id: string): Promise<void> {
+  await json(await fetch(`${BASE}/api/conversations/${id}/abort`, { method: "POST" }));
+}
+
+/**
+ * Send a message and stream harness events via SSE (fetch + ReadableStream).
+ *
+ * @param onEvent called with every streamed event ({ type, data })
+ * @param onCreated called with the conversation id when a new conversation
+ *   is created by this message
+ * @returns an AbortController to cancel the stream
+ */
+export function sendChat(
   message: string,
-  conversationId?: string,
-  model?: string,
-  directory?: string,
-  onEvent?: (event: { type: string; data: any }) => void,
-  onError?: (error: string) => void,
-  onDone?: () => void
+  conversationId: string | null,
+  model: string | undefined,
+  onEvent: (ev: { type: string; data: any }) => void,
+  onCreated: (id: string) => void,
+  onDone: () => void
 ): AbortController {
   const controller = new AbortController();
 
@@ -143,51 +103,155 @@ export function sendChatMessage(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message,
-          conversation_id: conversationId,
+          conversation_id: conversationId || undefined,
           model: model || undefined,
-          directory: directory || undefined,
         }),
         signal: controller.signal,
       });
 
-      if (!res.ok) {
-        onError?.(`HTTP ${res.status}`);
-        onDone?.();
-        return;
+      if (!res.ok || !res.body) {
+        throw new Error(`HTTP ${res.status}`);
       }
 
-      const reader = res.body!.getReader();
+      const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
 
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              onEvent?.({ type: "data", data });
-            } catch {
-              // Not JSON, might be a raw string (conversation id)
-              onEvent?.({ type: "meta", data: line.slice(6) });
-            }
+        // SSE frames: "event: <type>\ndata: <json>\n\n"
+        let idx: number;
+        while ((idx = buffer.indexOf("\n\n")) !== -1) {
+          const frame = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+          const evType = frame.match(/^event: (.+)$/m)?.[1];
+          const dataLine = frame.match(/^data: (.+)$/m)?.[1];
+          if (!evType || dataLine === undefined) continue;
+
+          if (evType === "conversation.created") {
+            onCreated(dataLine);
+            continue;
           }
+          let data: any = {};
+          try {
+            data = JSON.parse(dataLine);
+          } catch {
+            // keep {}
+          }
+          onEvent({ type: evType, data });
         }
       }
-      onDone?.();
     } catch (e: any) {
       if (e.name !== "AbortError") {
-        onError?.(e.message);
+        onEvent({ type: "error", data: { error: e.message } });
       }
-      onDone?.();
+    } finally {
+      onDone();
     }
   })();
 
   return controller;
+}
+
+/**
+ * Apply a streamed harness event to a TurnState in place (immutable-ish:
+ * returns a new TurnState via the caller's reactivity).
+ */
+export function applyTurnEvent(state: TurnState, type: string, data: any): void {
+  switch (type) {
+    case "message.delta":
+      state.text += data.delta ?? "";
+      break;
+    case "message.thinking":
+      state.thinking += data.delta ?? "";
+      break;
+    case "tool.start": {
+      const id = String(data.id ?? `${data.name}-${state.tools.size}`);
+      state.tools.set(id, { id, name: data.name, args: data.args, status: "running" });
+      break;
+    }
+    case "tool.delta": {
+      const id = String(data.id);
+      const tool = state.tools.get(id);
+      if (tool) tool.partial = (tool.partial ?? "") + (data.partial ?? "");
+      break;
+    }
+    case "tool.end": {
+      const id = String(data.id);
+      const tool = state.tools.get(id) ?? { id, name: data.name, status: "done" };
+      tool.output = data.output;
+      tool.isError = data.isError;
+      tool.durationMs = data.durationMs;
+      tool.status = data.isError ? "failed" : "done";
+      state.tools.set(id, tool);
+      break;
+    }
+    case "approval.required":
+      state.approvals.push({
+        id: data.id,
+        toolName: data.toolName,
+        args: data.args,
+        message: data.message,
+        autoApprovable: data.autoApprovable,
+        status: "pending",
+      });
+      break;
+    case "approval.updated": {
+      const a = state.approvals.find((x) => x.id === data.id);
+      if (a) a.status = data.status;
+      break;
+    }
+    case "plan.proposed":
+      state.plan = data.plan;
+      state.planStatus = "proposed";
+      break;
+    case "plan.approved":
+      state.plan = data.plan ?? state.plan;
+      state.planStatus = "approved";
+      break;
+    case "plan.rejected":
+      state.plan = data.plan ?? state.plan;
+      state.planStatus = "rejected";
+      break;
+    case "todos.updated":
+      state.todos = data.todos ?? [];
+      break;
+    case "turn.completed":
+      state.status = "completed";
+      if (data.response && !state.text) state.text = data.response;
+      break;
+    case "turn.failed":
+      state.status = "failed";
+      break;
+    case "turn.aborted":
+      state.status = "aborted";
+      break;
+  }
+}
+
+export function emptyTurn(): TurnState {
+  return {
+    text: "",
+    thinking: "",
+    tools: new Map(),
+    approvals: [],
+    todos: [],
+    plan: null,
+    planStatus: null,
+    status: "streaming",
+  };
+}
+
+export function serializeMessages(messages: Message[], turn: TurnState): Message[] {
+  const out = [...messages];
+  const content =
+    turn.text.trim() ||
+    (turn.status === "failed" ? "The turn failed." : turn.status === "aborted" ? "Turn aborted." : "");
+  if (content) {
+    out.push({ role: "assistant", content });
+  }
+  return out;
 }
