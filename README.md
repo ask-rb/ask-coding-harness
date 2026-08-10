@@ -17,6 +17,12 @@ ask-coding-harness          # or: ach serve
 Open http://localhost:8080. Set a model via `ACH_MODEL` (or
 `ASK_AGENT_MODEL`) and an API key for the provider (e.g. `OPENCODE_API_KEY`).
 
+**No API key yet?** Try the scripted demo agent:
+
+```bash
+ach demo
+```
+
 ## What you get
 
 - **The agent, unleashed** — `ask-agent` runs the loop in-process with the
@@ -38,6 +44,7 @@ Open http://localhost:8080. Set a model via `ACH_MODEL` (or
 
 ```bash
 ach serve                        # web server (default command)
+ach demo                         # scripted agent — no API key needed
 ach run "refactor the auth flow" # headless run, prints a transcript
 ach sessions                     # list saved conversations
 ach version
@@ -93,7 +100,20 @@ one browser-friendly schema.
 bundle install
 bundle exec rake test        # Ruby tests
 (cd web && npm install && npm run build)   # build the PWA into public/
+(cd web && npm test)         # frontend unit tests
 ```
+
+The frontend imports `ask-ui-kit` from source (a sibling repo, via a vite
+alias) — keep `ask-ui-kit` next to this repo and rebuild it after changing
+components.
+
+## The ask-rb ecosystem
+
+ask-coding-harness is part of the ask-rb ecosystem: `ask-agent` runs the
+loop, `ask-coding-providers` supplies the adapters, `ask-tools-shell` the
+tools (sandboxed via `ask-sandbox-providers`), `ask-state-providers` the
+storage, and `ask-ui-kit` the reusable web components. See
+https://ask-rb.github.io/ask-docs for the full picture.
 
 ## License
 
