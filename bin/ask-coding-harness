@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "ask-coding-harness"
+require "ask/coding_harness/cli"
+
+Ask::CodingHarness::CLI.run(ARGV)

@@ -45,10 +45,8 @@ module Ask
         if conv["title"] == "New conversation" && conv["messages"].length >= 1
           conv["title"] = guess_title(conv["messages"])
         end
-        db.transaction do
-          db.set("conv:#{conv["id"]}", conv)
-          db.list_append(CONVERSATIONS_KEY, conv["id"], max_length: MAX_CONVERSATIONS)
-        end
+        db.set("conv:#{conv["id"]}", conv)
+        index_conversation(conv["id"])
         conv
       end
 
@@ -59,10 +57,8 @@ module Ask
       end
 
       def delete(id)
-        db.transaction do
-          db.delete("conv:#{id}")
-          db.list_remove(CONVERSATIONS_KEY, id)
-        end
+        db.delete("conv:#{id}")
+        db.list_remove(CONVERSATIONS_KEY, id)
       end
 
       # Conversation summaries (no messages), sorted by most recent first.
@@ -116,7 +112,14 @@ module Ask
       def guess_title(messages)
         first = messages.find { |m| m["role"] == "user" }
         text = (first && first["content"]).to_s
-        text.length > 40 ? text[0..40] + "…" : text
+        text.length > 40 ? text[0, 40] + "…" : text
+      end
+
+      # Append to the conversation index, skipping duplicates (saves happen
+      # on every message).
+      def index_conversation(id)
+        existing = db.list_range(CONVERSATIONS_KEY, 0, -1)
+        db.list_append(CONVERSATIONS_KEY, id, max_length: MAX_CONVERSATIONS) unless existing.include?(id)
       end
     end
   end

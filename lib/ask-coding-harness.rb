@@ -48,4 +48,10 @@ module Ask
   end
 end
 
+require "ask-tools-shell"
+require "ask-state-providers"
 require "ask/coding_harness/config"
+require "ask/coding_harness/store"
+require "ask/coding_harness/event_translator"
+require "ask/coding_harness/agent_runner"
+require "ask/coding_harness/runner"

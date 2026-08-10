@@ -11,6 +11,10 @@ gem "ask-llm-providers", path: "../ask-llm-providers"
 gem "ask-state-providers", path: "../ask-state-providers"
 gem "ask-tools", path: "../ask-tools"
 gem "ask-tools-shell", path: "../ask-tools-shell"
+gem "ask-skills", path: "../ask-skills"
+gem "ask-schema", path: "../ask-schema"
+gem "ask-instrumentation", path: "../ask-instrumentation"
+gem "ask-auth", path: "../ask-auth"
 gem "ask-acp", path: "../ask-acp"
 
 group :development do

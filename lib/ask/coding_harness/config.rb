@@ -28,8 +28,8 @@ module Ask
       #               exists and can be inspected)
       APPROVAL_MODES = %i[off require auto].freeze
 
-      attr_accessor :host, :port, :workspace, :db_path, :model,
-                    :max_turns, :turn_timeout, :approval, :approval_required,
+      attr_accessor :host, :workspace, :db_path, :model,
+                    :max_turns, :turn_timeout, :approval_required,
                     :plan_mode, :todos, :tools, :adapter, :adapter_opts
 
       def initialize
@@ -40,7 +40,8 @@ module Ask
         @model = ENV["ACH_MODEL"] || ENV["ASK_AGENT_MODEL"] || "deepseek-v4-flash"
         @max_turns = (ENV["ACH_MAX_TURNS"] || ENV["ASK_AGENT_MAX_TURNS"] || "25").to_i
         @turn_timeout = (ENV["ACH_TURN_TIMEOUT"] || "600").to_i
-        @approval = (ENV["ACH_APPROVAL"] || "require").to_sym
+        @approval = :require
+        self.approval = (ENV["ACH_APPROVAL"] || "require").to_sym
         @approval_required = DEFAULT_APPROVAL_REQUIRED.dup
         @plan_mode = env_flag("ACH_PLAN_MODE", default: false)
         @todos = env_flag("ACH_TODOS", default: true)
@@ -48,6 +49,28 @@ module Ask
         @adapter = ENV["ACH_ADAPTER"] || ENV["CODING_PROVIDER"] || "ask_agent"
         @adapter_opts = {}
         validate!
+      end
+
+      def port
+        @port
+      end
+
+      def port=(value)
+        @port = value.to_i
+        raise ArgumentError, "invalid port: #{@port.inspect}" if @port <= 0 || @port > 65_535
+        @port
+      end
+
+      def approval
+        @approval
+      end
+
+      def approval=(value)
+        mode = value.to_sym
+        unless APPROVAL_MODES.include?(mode)
+          raise ArgumentError, "approval must be one of #{APPROVAL_MODES.inspect}, got #{value.inspect}"
+        end
+        @approval = mode
       end
 
       # True when the approval queue is active (mode :require or :auto).
@@ -81,9 +104,6 @@ module Ask
       end
 
       def validate!
-        unless APPROVAL_MODES.include?(@approval)
-          raise ArgumentError, "approval must be one of #{APPROVAL_MODES.inspect}, got #{@approval.inspect}"
-        end
         if @port.to_i <= 0 || @port.to_i > 65_535
           raise ArgumentError, "invalid port: #{@port.inspect}"
         end
