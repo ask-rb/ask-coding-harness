@@ -18,6 +18,16 @@ export async function fetchWorkspaces(): Promise<WorkspaceInfo[]> {
   return json(await fetch(`${BASE}/api/workspaces`));
 }
 
+export interface AgentInfo {
+  name: string;
+  instructions: string | null;
+}
+
+export async function fetchAgents(workspace: string): Promise<AgentInfo[]> {
+  const encoded = encodeURIComponent(workspace);
+  return json(await fetch(`${BASE}/api/workspaces/${encoded}/agents`));
+}
+
 export async function openWorkspace(path: string): Promise<WorkspaceInfo> {
   return json(
     await fetch(`${BASE}/api/workspaces`, {
@@ -105,6 +115,7 @@ export function sendChat(
   conversationId: string | null,
   model: string | undefined,
   workspace: string | undefined,
+  agent: string | undefined,
   onEvent: (ev: { type: string; data: any }) => void,
   onCreated: (id: string) => void,
   onDone: () => void
@@ -121,6 +132,7 @@ export function sendChat(
           conversation_id: conversationId || undefined,
           model: model || undefined,
           workspace: workspace || undefined,
+          agent: agent || undefined,
         }),
         signal: controller.signal,
       });

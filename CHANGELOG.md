@@ -1,6 +1,20 @@
 # Changelog
 
-## [0.2.0] - 2026-08-10
+## [0.2.1] - 2026-08-10
+
+### Added
+
+- **Declarative agents (ask-agent `agents/` convention).** Each workspace
+  can carry an `agents/<name>/` directory (`agent.rb` +
+  `instructions.md`): the harness lists them per workspace
+  (`GET /api/workspaces/:path/agents`), the composer has an agent picker,
+  and conversations remember their agent. When an agent is selected, the
+  session is built via `Ask::Agent.new` — the definition's tools, skills,
+  and model apply — and the agent's `instructions.md` becomes the system
+  prompt base (project context, guidelines, append, and footer still
+  apply, pi-style). Requires ask-coding-providers >= 0.3.2.
+
+
 
 ### Added
 

@@ -343,6 +343,48 @@ class AgentRunnerTest < Minitest::Test
     assert_equal File.realpath(ws), File.realpath(observed), "turn should execute inside its workspace"
   end
 
+  # ── Declarative agents (ask-agent agents/ convention) ──
+
+  def test_agent_instructions_become_the_system_prompt
+    build_chat_stub(sequence: [ResponseMessage.new(content: "ok")])
+    ws = Dir.mktmpdir("ach-agents")
+    agents_dir = File.join(ws, "agents", "refactorer")
+    FileUtils.mkdir_p(agents_dir)
+    File.write(File.join(agents_dir, "agent.rb"), <<~RUBY)
+      module Refactorer
+        class Agent < Ask::Agent::Definition
+          model "gpt-4o"
+        end
+      end
+    RUBY
+    File.write(File.join(agents_dir, "instructions.md"), "You are the refactorer.\nNever break tests.")
+
+    conversation = @store.save(@store.build(directory: ws, agent: "refactorer"))
+    run_turn("hi", conversation: conversation)
+
+    adapter = @runner.adapter
+    sessions = adapter.instance_variable_get(:@sessions)
+    prompt = sessions.values.first[:system_prompt]
+    assert_includes prompt, "You are the refactorer."
+    assert_includes prompt, "Never break tests."
+    assert_includes prompt, "Current working directory: #{ws}"
+  ensure
+    Ask::Agent.rediscover!
+  end
+
+  def test_agent_definitions_lists_workspace_agents
+    ws = Dir.mktmpdir("ach-agents-list")
+    FileUtils.mkdir_p(File.join(ws, "agents", "helper"))
+    File.write(File.join(ws, "agents", "helper", "agent.rb"), "module Helper\n  class Agent < Ask::Agent::Definition\n  end\nend\n")
+    File.write(File.join(ws, "agents", "helper", "instructions.md"), "Helper instructions.")
+
+    agents = @runner.agent_definitions(ws)
+    assert_equal ["helper"], agents.map { |a| a["name"] }
+    assert_includes agents.first["instructions"], "Helper instructions."
+  ensure
+    FileUtils.rm_rf(ws) if ws
+  end
+
   # ── External adapters (ACP-style) ──
 
   def test_external_adapter_without_approval_controls_is_noop

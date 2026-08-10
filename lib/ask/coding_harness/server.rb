@@ -124,6 +124,18 @@ module Ask
                 { error: "Not a directory: #{dir}" }.to_json
               end
             end
+
+            # GET /api/workspaces/:encoded_path/agents — declarative agents
+            # (ask-agent convention: agents/<name>/agent.rb +
+            # instructions.md), listed without loading them.
+            r.get "agents" do
+              dir = URI.decode_www_form_component(encoded)
+              unless File.directory?(dir)
+                response.status = 404
+                next { error: "Not a directory: #{dir}" }.to_json
+              end
+              harness_runner.agent_definitions(dir).to_json
+            end
           end
 
           # POST /api/chat — streaming turn
@@ -148,7 +160,13 @@ module Ask
             store.register_workspace(workspace)
 
             existing = conversation_id && store.load(conversation_id)
-            conversation = existing || store.build(directory: workspace)
+            conversation = existing || store.build(directory: workspace, agent: body["agent"])
+            # An explicit agent param updates the conversation (an agent
+            # picker can switch the persona for the next turn).
+            if existing && body["agent"]
+              conversation["agent"] = body["agent"]
+              conversation = store.save(conversation)
+            end
             new_conversation = existing.nil?
             conversation = store.save(conversation) if new_conversation
 

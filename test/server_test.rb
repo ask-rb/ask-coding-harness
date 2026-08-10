@@ -274,6 +274,56 @@ class ServerTest < Minitest::Test
     assert_equal 404, last_response.status
   end
 
+  # ── Declarative agents ──
+
+  def test_workspace_agents_endpoint
+    ws = Dir.mktmpdir("ach-server-agents")
+    FileUtils.mkdir_p(File.join(ws, "agents", "helper"))
+    File.write(File.join(ws, "agents", "helper", "agent.rb"), "module Helper\n  class Agent < Ask::Agent::Definition\n  end\nend\n")
+    File.write(File.join(ws, "agents", "helper", "instructions.md"), "Helper instructions.")
+    @runner.stubs(:agent_definitions).with(ws).returns([
+      { "name" => "helper", "instructions" => "Helper instructions." }
+    ])
+
+    encoded = URI.encode_www_form_component(ws)
+    get "/api/workspaces/#{encoded}/agents"
+    assert_equal 200, last_response.status
+    agents = JSON.parse(last_response.body)
+    assert_equal ["helper"], agents.map { |a| a["name"] }
+    assert_includes agents.first["instructions"], "Helper instructions."
+  end
+
+  def test_workspace_agents_rejects_missing_directory
+    encoded = URI.encode_www_form_component("/nonexistent/dir")
+    get "/api/workspaces/#{encoded}/agents"
+    assert_equal 404, last_response.status
+  end
+
+  def test_chat_stores_agent_on_new_conversation
+    @runner.stubs(:start_turn).returns(Thread.new {})
+    post "/api/chat", { message: "hi", agent: "helper" }.to_json, { "CONTENT_TYPE" => "application/json" }
+    assert_equal 200, last_response.status
+
+    cid = last_response.body[/event: conversation.created\ndata: ([^\n]+)/, 1]
+    conv = @store.load(cid)
+    assert_equal "helper", conv["agent"]
+  end
+
+  def test_chat_agent_param_updates_existing_conversation
+    conv = @store.save(@store.build(directory: @config.workspace, agent: "old_agent"))
+    @runner.stubs(:start_turn).returns(Thread.new {})
+    post "/api/chat", { message: "hi", conversation_id: conv["id"], agent: "new_agent" }.to_json, { "CONTENT_TYPE" => "application/json" }
+    assert_equal 200, last_response.status
+    assert_equal "new_agent", @store.load(conv["id"])["agent"]
+  end
+
+  def test_conversation_summary_includes_agent
+    conv = @store.save(@store.build(directory: @config.workspace, agent: "helper"))
+    get "/api/conversations"
+    entry = JSON.parse(last_response.body).find { |c| c["id"] == conv["id"] }
+    assert_equal "helper", entry["agent"]
+  end
+
   # ── Static / SPA / CORS ──
 
   def test_frontend_serves_index

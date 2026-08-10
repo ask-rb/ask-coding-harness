@@ -1,11 +1,40 @@
 <script lang="ts">
-  let { streaming, model, disabled, onSend, onStop } = $props<{
+  import "ask-ui-kit";
+
+  let {
+    streaming,
+    model,
+    disabled,
+    agents,
+    currentAgent,
+    onSend,
+    onStop,
+    onAgentChange,
+  } = $props<{
     streaming: boolean;
     model: string | undefined;
     disabled: boolean;
+    agents: { name: string }[];
+    currentAgent: string | null;
     onSend: (text: string) => void;
     onStop: () => void;
+    onAgentChange: (name: string | null) => void;
   }>();
+
+  const agentItems = $derived([
+    { id: "", label: "Default agent", description: "workspace defaults", icon: "🤖", active: !currentAgent },
+    ...agents.map((a) => ({
+      id: a.name,
+      label: a.name,
+      description: "agents/" + a.name,
+      icon: "🧩",
+      active: a.name === currentAgent,
+    })),
+  ]);
+
+  function onAgentSelect(e: CustomEvent<{ id: string }>) {
+    onAgentChange(e.detail.id || null);
+  }
 
   let value = $state("");
   let ta: HTMLTextAreaElement;
@@ -60,6 +89,11 @@
   {#if model}
     <div class="hint">
       <span class="model-chip">{model}</span>
+      <span class="agent-chip">
+        <ask-menu items={agentItems} onmenu-select={onAgentSelect} class="agent-menu">
+          <span slot="trigger">{currentAgent ? `agent: ${currentAgent}` : "default agent"}</span>
+        </ask-menu>
+      </span>
       <span class="shortcut">Shift+Enter for a new line</span>
     </div>
   {/if}
@@ -137,12 +171,22 @@
     font-size: 0.6875rem;
     color: #737373;
   }
-  .model-chip {
+  .model-chip,
+  .agent-chip {
     color: #a3a3a3;
     border: 1px solid #26262a;
     border-radius: 999px;
     padding: 0.125rem 0.5rem;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .agent-chip :global(.trigger) {
+    padding: 0;
+    border: none;
+    font-family: inherit;
+    font-size: inherit;
+  }
+  .agent-chip :global(.trigger:hover) {
+    background: transparent;
   }
   .shortcut {
     margin-left: auto;

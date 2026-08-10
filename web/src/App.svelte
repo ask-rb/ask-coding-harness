@@ -9,6 +9,7 @@
     abortTurn,
     applyTurnEvent,
     emptyTurn,
+    fetchAgents,
     fetchConfig,
     fetchConversation,
     fetchConversations,
@@ -22,6 +23,8 @@
   let conversations: Conversation[] = $state([]);
   let workspaces: WorkspaceInfo[] = $state([]);
   let currentWorkspace: WorkspaceInfo | null = $state(null);
+  let agents: { name: string; instructions: string | null }[] = $state([]);
+  let currentAgent: string | null = $state(null);
   let currentId: string | null = $state(null);
   let messages: Message[] = $state([]);
   let turn: TurnState = $state(emptyTurn());
@@ -41,6 +44,7 @@
       workspaces = await fetchWorkspaces();
       currentWorkspace =
         workspaces.find((w) => w.root === config?.workspace.root) ?? workspaces[0] ?? config?.workspace ?? null;
+      if (currentWorkspace) await loadAgents(currentWorkspace);
     } catch (e: any) {
       error = `Cannot reach the harness server: ${e.message}`;
     }
@@ -57,12 +61,21 @@
       settingsOpen = false;
       sidebarOpen = false;
       error = null;
+      currentAgent = conv.agent ?? null;
       if (conv.directory) {
         const ws = workspaces.find((w) => w.root === conv.directory);
         if (ws) currentWorkspace = ws;
       }
     } catch (e: any) {
       error = e.message;
+    }
+  }
+
+  async function loadAgents(ws: WorkspaceInfo) {
+    try {
+      agents = await fetchAgents(ws.root);
+    } catch {
+      agents = [];
     }
   }
 
@@ -73,6 +86,8 @@
     messages = [];
     turn = emptyTurn();
     error = null;
+    currentAgent = null;
+    loadAgents(ws);
   }
 
   function onWorkspaceOpened(ws: WorkspaceInfo) {
@@ -110,6 +125,7 @@
       currentId,
       config?.defaultModel,
       currentWorkspace?.root,
+      currentAgent ?? undefined,
       (ev) => {
         if (ev.type === "error") {
           error = ev.data.error;
@@ -212,8 +228,11 @@
       <Composer
         {streaming}
         model={config?.defaultModel}
+        {agents}
+        currentAgent={currentAgent}
         onSend={send}
         onStop={stop}
+        onAgentChange={(name) => (currentAgent = name)}
         disabled={!config}
       />
     </main>

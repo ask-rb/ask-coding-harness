@@ -27,12 +27,15 @@ module Ask
       end
 
       # A fresh conversation record. Not persisted until {#save}.
-      def build(directory: nil, title: "New conversation")
+      # @param agent [String, nil] declarative agent name (ask-agent
+      #   convention) or nil for the default agent
+      def build(directory: nil, title: "New conversation", agent: nil)
         now = Time.now.iso8601
         {
           "id" => SecureRandom.uuid,
           "title" => title,
           "directory" => directory,
+          "agent" => agent,
           "archived" => false,
           "messages" => [],
           "created_at" => now,
@@ -120,6 +123,7 @@ module Ask
           "id" => data["id"],
           "title" => data["title"] || "New conversation",
           "directory" => data["directory"],
+          "agent" => data["agent"],
           "archived" => data["archived"] == true,
           "message_count" => data["messages"]&.length || 0,
           "created_at" => data["created_at"],

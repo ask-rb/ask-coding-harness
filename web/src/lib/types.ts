@@ -4,6 +4,7 @@ export interface Conversation {
   id: string;
   title: string;
   directory?: string;
+  agent?: string | null;
   archived: boolean;
   message_count: number;
   created_at?: string;

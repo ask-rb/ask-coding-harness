@@ -125,6 +125,19 @@ module Ask
         end
       end
 
+      # The system prompt for a workspace. When a declarative agent is
+      # selected, its instructions.md become the custom base prompt
+      # (project context, guidelines, append, and footer still apply).
+      # Adapters that don't accept a per-session prompt (external ACP
+      # agents) ignore the extra keywords.
+      def system_prompt_for(workspace, agent = nil)
+        Ask::CodingHarness::SystemPrompt.build(
+          workspace: workspace,
+          custom: @config.system_prompt || (agent_instructions(workspace, agent) if agent),
+          append: @config.system_prompt_append,
+          guidelines: @config.system_prompt_guidelines
+        )
+      end
       private
 
       def run_turn(conversation, prompt, model: nil, &on_event)
@@ -192,28 +205,55 @@ module Ask
 
       # One adapter session per conversation, created on first use. Each
       # session gets its workspace's system prompt (pi-style: default or
-      # custom base + guidelines + AGENTS.md/CLAUDE.md project context).
+      # custom base + guidelines + AGENTS.md/CLAUDE.md project context),
+      # plus the conversation's declarative agent when one is selected.
+      # Runs inside the workspace (the mutex makes the chdir safe) so the
+      # ask-agent agents/ discovery finds this workspace's definitions.
       def session_for(conversation, workspace = nil, model: nil)
         workspace ||= conversation["directory"] || @config.workspace
         @mutex.synchronize do
-          @sessions[conversation["id"]] ||= adapter.create_session(
-            workspace,
-            model: model || @config.model,
-            system_prompt: system_prompt_for(workspace)
-          )
+          Dir.chdir(workspace) do
+            @sessions[conversation["id"]] ||= adapter.create_session(
+              workspace,
+              model: model || @config.model,
+              system_prompt: system_prompt_for(workspace, conversation["agent"]),
+              agent: conversation["agent"]
+            )
+          end
         end
       end
 
-      # The system prompt for a workspace. Adapters that don't accept a
-      # per-session prompt (external ACP agents) ignore the extra keyword.
-      def system_prompt_for(workspace)
-        Ask::CodingHarness::SystemPrompt.build(
-          workspace: workspace,
-          custom: @config.system_prompt,
-          append: @config.system_prompt_append,
-          guidelines: @config.system_prompt_guidelines
-        )
+
+      # Declarative agents in a workspace (ask-agent convention):
+      # [{name:, instructions:}] discovered without loading the
+      # definitions. Safe for listing in the UI.
+      def agent_definitions(workspace)
+        Dir.chdir(workspace) do
+          Ask::Agent.default_agent_paths.filter_map do |base|
+            next unless File.directory?(base)
+            Dir["#{base}/*/agent.rb"].sort.filter_map do |file|
+              dir = File.dirname(file)
+              name = File.basename(dir)
+              next if name == "shared"
+              instructions = File.file?(File.join(dir, "instructions.md")) ? File.read(File.join(dir, "instructions.md")) : nil
+              { "name" => name, "instructions" => instructions }
+            end
+          end.flatten
+        end
       end
+
+      # The instructions.md content of a named agent, loaded through the
+      # ask-agent registry (which also validates the definition).
+      def agent_instructions(workspace, agent)
+        Dir.chdir(workspace) do
+          Ask::Agent.rediscover!
+          klass = Ask::Agent.definitions[agent.to_s]&.first
+          klass&.instructions_content
+        end
+      end
+
+      # The server lists agents per workspace.
+      public :agent_definitions, :agent_instructions
 
       # Dispatch a control to the adapter, returning nil when the adapter
       # doesn't support it (e.g. external ACP agents without approvals).
