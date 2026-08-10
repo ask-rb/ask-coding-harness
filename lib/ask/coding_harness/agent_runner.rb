@@ -232,7 +232,8 @@ module Ask
         adapter = Ask::CodingProviders.build_adapter(
           @config.adapter,
           workspace_path: @config.workspace,
-          turn_timeout: @config.turn_timeout
+          turn_timeout: @config.turn_timeout,
+          approval: @config.approval
         )
         adapter.start if adapter.respond_to?(:start)
         adapter

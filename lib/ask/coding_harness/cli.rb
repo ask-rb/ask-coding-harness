@@ -79,16 +79,21 @@ module Ask
       end
 
       def run_headless
-        options = { quiet: false, model: nil, workspace: nil, approval: :off }
+        options = { quiet: false, model: nil, workspace: nil, approval: :off, adapter: nil }
         parser = OptionParser.new do |o|
           o.banner = "Usage: ach run [options] \"prompt\""
           o.on("-w", "--workspace DIR", "Workspace directory") { |v| options[:workspace] = v }
           o.on("--model MODEL", "Model to use") { |v| options[:model] = v }
+          o.on("--adapter NAME", "Coding agent adapter (ask_agent, demo, acp, ...)") { |v| options[:adapter] = v }
           o.on("--approval MODE", "off|require|auto (default off)") { |v| options[:approval] = v.to_sym }
           o.on("-q", "--quiet", "Suppress the transcript") { options[:quiet] = true }
           o.on("-h", "--help", "Show help") { puts o; return }
         end
         parser.parse!(@argv)
+        if options[:adapter] == "demo"
+          require "ask/coding_harness/demo_adapter"
+        end
+        @config.adapter = options[:adapter] if options[:adapter]
 
         prompt = @argv.join(" ").strip
         if prompt.empty?
