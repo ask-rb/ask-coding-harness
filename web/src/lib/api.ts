@@ -170,23 +170,29 @@ export function applyTurnEvent(state: TurnState, type: string, data: any): void 
       break;
     case "tool.start": {
       const id = String(data.id ?? `${data.name}-${state.tools.size}`);
-      state.tools.set(id, { id, name: data.name, args: data.args, status: "running" });
+      // Svelte 5 $state does not proxy Map mutations — replace the Map so
+      // the UI re-renders.
+      state.tools = new Map(state.tools).set(id, { id, name: data.name, args: data.args, status: "running" });
       break;
     }
     case "tool.delta": {
       const id = String(data.id);
       const tool = state.tools.get(id);
-      if (tool) tool.partial = (tool.partial ?? "") + (data.partial ?? "");
+      if (tool) {
+        state.tools = new Map(state.tools).set(id, { ...tool, partial: (tool.partial ?? "") + (data.partial ?? "") });
+      }
       break;
     }
     case "tool.end": {
       const id = String(data.id);
       const tool = state.tools.get(id) ?? { id, name: data.name, status: "done" };
-      tool.output = data.output;
-      tool.isError = data.isError;
-      tool.durationMs = data.durationMs;
-      tool.status = data.isError ? "failed" : "done";
-      state.tools.set(id, tool);
+      state.tools = new Map(state.tools).set(id, {
+        ...tool,
+        output: data.output,
+        isError: data.isError,
+        durationMs: data.durationMs,
+        status: data.isError ? "failed" : "done",
+      });
       break;
     }
     case "approval.required":

@@ -31,8 +31,13 @@ module Ask
 
       # Run the web server (blocking). See CLI for the non-blocking path.
       def run_server(host: nil, port: nil)
-        require_relative "coding_harness/server"
-        Server.run!(host: host, port: port)
+        require_relative "ask/coding_harness/server"
+        require "rackup"
+
+        store = Store.new(db_path: config.db_path)
+        runner = AgentRunner.new(config: config, store: store)
+        app = Server.build(config: config, store: store, runner: runner).freeze.app
+        Rackup::Server.start(app: app, Host: host || config.host, Port: port || config.port)
       end
 
       # Run a prompt headlessly against the workspace and return the result.
@@ -41,7 +46,7 @@ module Ask
       # @param workspace [String, nil] overrides config.workspace
       # @return [Ask::CodingHarness::Runner::Result]
       def run(prompt, workspace: nil, **opts)
-        require_relative "coding_harness/runner"
+        require_relative "ask/coding_harness/runner"
         Runner.new(config: config).run(prompt, workspace: workspace, **opts)
       end
     end

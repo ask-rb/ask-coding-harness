@@ -68,6 +68,12 @@
   function send(text: string) {
     if (streaming || !text.trim()) return;
 
+    // Fold the finished turn's text into the message list before starting
+    // a new one (the live turn keeps rendering its artifacts until then).
+    if (turn.text.trim() && (messages.length === 0 || messages[messages.length - 1].role !== "assistant")) {
+      messages = [...messages, { role: "assistant", content: turn.text.trim() }];
+    }
+
     const userMsg: Message = { role: "user", content: text.trim() };
     messages = [...messages, userMsg];
     turn = emptyTurn();
@@ -92,9 +98,8 @@
       },
       () => {
         streaming = false;
-        if (turn.text.trim() || turn.status !== "streaming") {
-          messages = [...messages, { role: "assistant", content: turn.text || "Turn aborted." }];
-        }
+        // The assistant message was persisted by the runner; the live turn
+        // keeps rendering its text and artifacts in place.
         refreshConversations();
       }
     );

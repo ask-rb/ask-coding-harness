@@ -31,6 +31,7 @@ module Ask
         command = @argv.shift || "serve"
         case command
         when "serve", "server" then serve
+        when "demo" then serve(demo: true)
         when "run" then run_headless
         when "sessions" then list_sessions
         when "version", "--version", "-v" then @stdout.puts Ask::CodingHarness::VERSION
@@ -44,7 +45,12 @@ module Ask
 
       private
 
-      def serve
+      def serve(demo: false)
+        if demo
+          @config.adapter = "demo"
+          require "ask/coding_harness/demo_adapter"
+          @stdout.puts "demo mode: scripted agent, no API key needed"
+        end
         options = { host: @config.host, port: @config.port }
         parser = OptionParser.new do |o|
           o.banner = "Usage: ach serve [options]"
@@ -60,12 +66,16 @@ module Ask
         parser.parse!(@argv)
 
         require "ask/coding_harness/server"
+        require "rackup"
         @stdout.puts "ask-coding-harness #{Ask::CodingHarness::VERSION}"
         @stdout.puts "workspace: #{@config.workspace}"
         @stdout.puts "model:     #{@config.model}"
         @stdout.puts "approval:  #{@config.approval}"
         @stdout.puts "listening: http://#{options[:host]}:#{options[:port]}"
-        Ask::CodingHarness.run_server(host: options[:host], port: options[:port])
+        store = Store.new(db_path: @config.db_path)
+        runner = AgentRunner.new(config: @config, store: store)
+        app = Server.build(config: @config, store: store, runner: runner).freeze.app
+        Rackup::Server.start(app: app, Host: options[:host], Port: options[:port])
       end
 
       def run_headless
@@ -113,6 +123,7 @@ module Ask
 
           Usage:
             ach serve                Start the web server (default)
+            ach demo                 Serve with the scripted demo agent (no API key)
             ach run "task"           Run a prompt headlessly in the workspace
             ach sessions             List saved conversations
             ach version              Print the version

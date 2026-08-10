@@ -47,11 +47,11 @@
     {/if}
   {/each}
 
-  {#if streaming || turn.text || turn.tools.size || turn.approvals.length || turn.plan || turn.todos.length}
+  {#if streaming || turn.text.trim() || turn.tools.size > 0 || turn.approvals.length > 0 || turn.plan || turn.todos.length > 0}
     <AssistantMessage
       content={turn.text}
       {turn}
-      streaming={true}
+      streaming={streaming}
       {conversationId}
     />
   {/if}
