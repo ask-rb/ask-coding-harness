@@ -1,26 +1,19 @@
+# frozen_string_literal: true
+
 source "https://rubygems.org"
 
 gemspec
 
-gem "roda", "~> 3.80"
-gem "puma", "~> 6.5"
-gem "rack", "~> 3.1"
-gem "rackup", "~> 2.2"
-gem "json"
-gem "securerandom"
-
-# Ask-rb ecosystem
 gem "ask-coding-providers", path: "../ask-coding-providers"
-gem "ask-channel-providers", path: "../ask-channel-providers"
-gem "ask-state-providers", path: "../ask-state-providers"
-gem "ask-acp", path: "../ask-acp"
 gem "ask-agent", path: "../ask-agent"
-gem "ask-llm-providers", path: "../ask-llm-providers"
 gem "ask-core", path: "../ask-core"
-gem "ask-auth", path: "../ask-auth"
-gem "rack-test", "~> 2.2"
-gem "sqlite3", "~> 2.0"
+gem "ask-llm-providers", path: "../ask-llm-providers"
+gem "ask-state-providers", path: "../ask-state-providers"
+gem "ask-tools", path: "../ask-tools"
+gem "ask-tools-shell", path: "../ask-tools-shell"
+gem "ask-acp", path: "../ask-acp"
 
 group :development do
-  gem "rack-unreloader", "~> 2.1"
+  gem "rack-test", "~> 2.2"
+  gem "sqlite3", "~> 2.0"
 end

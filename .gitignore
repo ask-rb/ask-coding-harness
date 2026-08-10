@@ -1,7 +1,21 @@
-data/
+# Bundler
+/.bundle/
+/vendor/bundle/
+
+# Runtime data
+/data/
+*.db
+
+# Web frontend
+/web/node_modules/
+/web/.svelte-kit/
+/web/dist/
+
+# Test artifacts
+/coverage/
+
+# Environment
 .env
-*.log
-public/
-api/data/
-web/node_modules/
-web/.svelte-kit/
+
+# OS
+.DS_Store
