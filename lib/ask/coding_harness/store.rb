@@ -15,7 +15,9 @@ module Ask
     # conversation records; the server and runner only read/write through it.
     class Store
       CONVERSATIONS_KEY = "__conversations__"
+      WORKSPACES_KEY = "__workspaces__"
       MAX_CONVERSATIONS = 500
+      MAX_WORKSPACES = 100
 
       # @param db_path [String] path to the SQLite database file
       def initialize(db_path:)
@@ -84,6 +86,22 @@ module Ask
           dir = c["directory"]
           counts[dir] += 1 if dir
         end.map { |dir, count| { "directory" => dir, "name" => File.basename(dir), "conversation_count" => count } }
+      end
+
+      # ── Workspace registry ──
+
+      # Register a workspace path (idempotent). Workspaces the server has
+      # explicitly opened, even before any conversation exists.
+      def register_workspace(path)
+        dir = File.expand_path(path)
+        existing = db.list_range(WORKSPACES_KEY, 0, -1)
+        db.list_append(WORKSPACES_KEY, dir, max_length: MAX_WORKSPACES) unless existing.include?(dir)
+        dir
+      end
+
+      # Explicitly registered workspace paths.
+      def workspaces
+        db.list_range(WORKSPACES_KEY, 0, -1)
       end
 
       def close

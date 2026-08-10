@@ -88,6 +88,44 @@ module Ask
             workspace_info.to_json
           end
 
+          # GET /api/workspaces — known workspaces (registered + with
+          # conversations), enriched with name, branch, and counts
+          r.get "workspaces" do
+            store = harness_store
+            dirs = (store.workspaces + store.projects.map { |p| p["directory"] }).uniq
+            dirs.filter_map { |dir| workspace_info(dir, store) }.to_json
+          end
+
+          # POST /api/workspaces — open a workspace by path
+          r.post "workspaces" do
+            body = JSON.parse(r.body.read)
+            path = body["path"].to_s.strip
+            if path.empty?
+              response.status = 400
+              next { error: "path is required" }.to_json
+            end
+            unless File.directory?(path)
+              response.status = 404
+              next { error: "Not a directory: #{path}" }.to_json
+            end
+            dir = harness_store.register_workspace(path)
+            workspace_info(dir, harness_store).to_json
+          end
+
+          # GET /api/workspaces/:encoded_path/info
+          r.on "workspaces", String do |encoded|
+            r.get "info" do
+              dir = URI.decode_www_form_component(encoded)
+              info = workspace_info(dir, harness_store)
+              if info
+                info.to_json
+              else
+                response.status = 404
+                { error: "Not a directory: #{dir}" }.to_json
+              end
+            end
+          end
+
           # POST /api/chat — streaming turn
           r.post "chat" do
             body = JSON.parse(r.body.read)
@@ -101,8 +139,16 @@ module Ask
             end
 
             store = harness_store
+            workspace = body["workspace"].to_s.strip
+            workspace = harness_config.workspace if workspace.empty?
+            if !File.directory?(workspace)
+              response.status = 404
+              next { error: "Not a directory: #{workspace}" }.to_json
+            end
+            store.register_workspace(workspace)
+
             existing = conversation_id && store.load(conversation_id)
-            conversation = existing || store.build(directory: harness_config.workspace)
+            conversation = existing || store.build(directory: workspace)
             new_conversation = existing.nil?
             conversation = store.save(conversation) if new_conversation
 
@@ -292,18 +338,23 @@ module Ask
         raise NotImplementedError, "built via Server.build"
       end
 
-      def workspace_info
-        cfg = harness_config
-        root = cfg.workspace
+      def workspace_info(root = nil, store = nil)
+        root ||= harness_config.workspace
+        return nil unless File.directory?(root)
         branch = nil
         head = File.join(root, ".git", "HEAD")
         if File.file?(head)
           ref = File.read(head).strip
           branch = ref.split("/").last if ref.start_with?("ref:")
         end
-        { name: File.basename(root), root: root, gitBranch: branch }
+        count = 0
+        if store
+          conv = store.list_for_directory(root)
+          count = conv.length
+        end
+        { name: File.basename(root), root: root, gitBranch: branch, conversation_count: count }
       rescue SystemCallError
-        { name: File.basename(root), root: root, gitBranch: nil }
+        nil
       end
 
       def models

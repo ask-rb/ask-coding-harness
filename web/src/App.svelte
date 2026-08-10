@@ -4,6 +4,7 @@
   import Sidebar from "./components/Sidebar.svelte";
   import Composer from "./components/Composer.svelte";
   import Settings from "./components/Settings.svelte";
+  import WorkspaceSwitcher from "./components/WorkspaceSwitcher.svelte";
   import {
     abortTurn,
     applyTurnEvent,
@@ -11,13 +12,16 @@
     fetchConfig,
     fetchConversation,
     fetchConversations,
+    fetchWorkspaces,
     sendChat,
   } from "./lib/api";
-  import type { ConfigResponse, Conversation, Message, TurnState } from "./lib/types";
+  import type { ConfigResponse, Conversation, Message, TurnState, WorkspaceInfo } from "./lib/types";
 
   // ── State ──
   let config: ConfigResponse | null = $state(null);
   let conversations: Conversation[] = $state([]);
+  let workspaces: WorkspaceInfo[] = $state([]);
+  let currentWorkspace: WorkspaceInfo | null = $state(null);
   let currentId: string | null = $state(null);
   let messages: Message[] = $state([]);
   let turn: TurnState = $state(emptyTurn());
@@ -34,6 +38,9 @@
     try {
       config = await fetchConfig();
       conversations = await fetchConversations();
+      workspaces = await fetchWorkspaces();
+      currentWorkspace =
+        workspaces.find((w) => w.root === config?.workspace.root) ?? workspaces[0] ?? config?.workspace ?? null;
     } catch (e: any) {
       error = `Cannot reach the harness server: ${e.message}`;
     }
@@ -50,9 +57,27 @@
       settingsOpen = false;
       sidebarOpen = false;
       error = null;
+      if (conv.directory) {
+        const ws = workspaces.find((w) => w.root === conv.directory);
+        if (ws) currentWorkspace = ws;
+      }
     } catch (e: any) {
       error = e.message;
     }
+  }
+
+  function selectWorkspace(ws: WorkspaceInfo) {
+    if (streaming) return;
+    currentWorkspace = ws;
+    currentId = null;
+    messages = [];
+    turn = emptyTurn();
+    error = null;
+  }
+
+  function onWorkspaceOpened(ws: WorkspaceInfo) {
+    workspaces = [...workspaces.filter((w) => w.root !== ws.root), ws];
+    selectWorkspace(ws);
   }
 
   function newConversation() {
@@ -84,6 +109,7 @@
       userMsg.content,
       currentId,
       config?.defaultModel,
+      currentWorkspace?.root,
       (ev) => {
         if (ev.type === "error") {
           error = ev.data.error;
@@ -143,10 +169,7 @@
     </button>
 
     <div class="workspace">
-      <span class="workspace-name">{config?.workspace.name ?? "…"}</span>
-      {#if config?.workspace.gitBranch}
-        <span class="branch">{config.workspace.gitBranch}</span>
-      {/if}
+      <WorkspaceSwitcher {workspaces} current={currentWorkspace} onSelect={selectWorkspace} onOpened={onWorkspaceOpened} />
     </div>
 
     <div class="topbar-actions">
@@ -168,8 +191,9 @@
     {#if sidebarOpen || !isMobile}
       <div class="sidebar-wrap">
         <Sidebar
-          conversations={conversations}
+          conversations={conversations.filter((c) => !currentWorkspace || c.directory === currentWorkspace.root)}
           currentId={currentId}
+          workspaceName={currentWorkspace?.name}
           onSelect={onSelect}
           onNew={newConversation}
           onChanged={onConversationsChanged}

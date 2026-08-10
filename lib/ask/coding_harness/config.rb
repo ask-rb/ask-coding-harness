@@ -30,7 +30,8 @@ module Ask
 
       attr_accessor :host, :workspace, :db_path, :model,
                     :max_turns, :turn_timeout, :approval_required,
-                    :plan_mode, :todos, :tools, :adapter, :adapter_opts
+                    :plan_mode, :todos, :tools, :adapter, :adapter_opts,
+                    :system_prompt, :system_prompt_append, :system_prompt_guidelines
 
       def initialize
         @host = ENV.fetch("ACH_HOST", "0.0.0.0")
@@ -48,6 +49,9 @@ module Ask
         @tools = DEFAULT_TOOLS.dup
         @adapter = ENV["ACH_ADAPTER"] || ENV["CODING_PROVIDER"] || "ask_agent"
         @adapter_opts = {}
+        @system_prompt = nil
+        @system_prompt_append = ENV["ACH_SYSTEM_PROMPT"]
+        @system_prompt_guidelines = []
         validate!
       end
 

@@ -1,4 +1,4 @@
-import type { ConfigResponse, Conversation, Message, TurnState } from "./types";
+import type { ConfigResponse, Conversation, Message, TurnState, WorkspaceInfo } from "./types";
 
 const BASE = "";
 
@@ -12,6 +12,20 @@ async function json<T>(res: Response): Promise<T> {
 
 export async function fetchConfig(): Promise<ConfigResponse> {
   return json(await fetch(`${BASE}/api/config`));
+}
+
+export async function fetchWorkspaces(): Promise<WorkspaceInfo[]> {
+  return json(await fetch(`${BASE}/api/workspaces`));
+}
+
+export async function openWorkspace(path: string): Promise<WorkspaceInfo> {
+  return json(
+    await fetch(`${BASE}/api/workspaces`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+    })
+  );
 }
 
 export async function fetchConversations(): Promise<Conversation[]> {
@@ -90,6 +104,7 @@ export function sendChat(
   message: string,
   conversationId: string | null,
   model: string | undefined,
+  workspace: string | undefined,
   onEvent: (ev: { type: string; data: any }) => void,
   onCreated: (id: string) => void,
   onDone: () => void
@@ -105,6 +120,7 @@ export function sendChat(
           message,
           conversation_id: conversationId || undefined,
           model: model || undefined,
+          workspace: workspace || undefined,
         }),
         signal: controller.signal,
       });

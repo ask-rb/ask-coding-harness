@@ -293,6 +293,56 @@ class AgentRunnerTest < Minitest::Test
     assert_equal "The turn failed.", conv["messages"].last["content"]
   end
 
+  # ── Universal workspaces ──
+
+  def test_sessions_get_workspace_specific_system_prompt
+    build_chat_stub(sequence: [ResponseMessage.new(content: "ok")])
+    ws_a = Dir.mktmpdir("ach-ws-a")
+    ws_b = Dir.mktmpdir("ach-ws-b")
+
+    conversation_a = @store.save(@store.build(directory: ws_a))
+    conversation_b = @store.save(@store.build(directory: ws_b))
+
+    run_turn("hi", conversation: conversation_a)
+    run_turn("hi", conversation: conversation_b)
+
+    adapter = @runner.adapter
+    sessions = adapter.instance_variable_get(:@sessions)
+    prompts = sessions.values.map { |e| e[:system_prompt] }
+    assert_equal 2, prompts.compact.length
+    assert_includes prompts[0], "Current working directory: #{ws_a}"
+    assert_includes prompts[1], "Current working directory: #{ws_b}"
+  end
+
+  def test_project_context_files_are_loaded_per_workspace
+    build_chat_stub(sequence: [ResponseMessage.new(content: "ok")])
+    ws = Dir.mktmpdir("ach-ws-ctx")
+    File.write(File.join(ws, "AGENTS.md"), "# Workspace A rules\nAlways run the tests.")
+
+    conversation = @store.save(@store.build(directory: ws))
+    run_turn("hi", conversation: conversation)
+
+    adapter = @runner.adapter
+    sessions = adapter.instance_variable_get(:@sessions)
+    prompt = sessions.values.first[:system_prompt]
+    assert_includes prompt, "Workspace A rules"
+    assert_includes prompt, "Always run the tests."
+  end
+
+  def test_turns_run_inside_their_workspace_directory
+    build_chat_stub(sequence: [ResponseMessage.new(content: "ok")])
+    ws = Dir.mktmpdir("ach-ws-cwd")
+    observed = nil
+
+    conversation = @store.save(@store.build(directory: ws))
+    thread = @runner.start_turn(conversation, "hi") do |ev|
+      observed ||= Dir.pwd if ev[:type] == "turn.started"
+    end
+    thread.join(15)
+
+    assert_equal File.realpath(ws), File.realpath(observed), "turn should execute inside its workspace"
+  end
+
   # ── External adapters (ACP-style) ──
 
   def test_external_adapter_without_approval_controls_is_noop
@@ -302,7 +352,8 @@ class AgentRunnerTest < Minitest::Test
       def initialize; end
       def start; end
       def stop; end
-      def create_session(_workspace, model: nil)
+      # External adapters ignore the per-session system prompt.
+      def create_session(_workspace, model: nil, system_prompt: nil, **)
         "external_sid"
       end
       def send_and_stream(_sid, prompt, turn_timeout: 600.0, &block)

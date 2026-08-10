@@ -4,6 +4,36 @@
 
 ### Added
 
+- **Universal workspaces.** The harness is no longer bound to one
+  directory: open any project from the UI (workspace switcher + Open
+  workspace dialog), switch between them, and every conversation runs
+  inside its own workspace with its own system prompt.
+  - `POST /api/workspaces` (open/register), `GET /api/workspaces`
+    (list with name/branch/counts), `GET /api/workspaces/:path/info`.
+  - `POST /api/chat` accepts a `workspace` param; conversations are
+    created and grouped per workspace.
+  - Turns execute inside their workspace directory (serialized via a
+    turn mutex, since the shell tools default to `Dir.pwd`).
+- **Pi-style system prompts.** `SystemPrompt` builds a composable prompt:
+  default or custom base, guidelines, `<project_context>` from
+  AGENTS.md/CLAUDE.md (walked from the workspace up to the root, like the
+  pi coding agent), an append section, and a `Current working directory:`
+  footer. Config: `system_prompt`, `system_prompt_append`,
+  `system_prompt_guidelines` (env `ACH_SYSTEM_PROMPT` still appends).
+- **ask-ui-kit sidebar/shell components** extracted from the popular
+  coding agents' UIs (openchamber, openwebui, t3code): `ask-dialog`,
+  `ask-menu`, `ask-search-input`, `ask-conversation-item`,
+  `ask-conversation-group`. The harness frontend now builds its switcher,
+  sidebar (search + grouped conversation items), and dialogs on them.
+
+### Fixed
+
+- `DemoAdapter#create_session` accepts the `system_prompt` keyword (the
+  universal runner passes it to every adapter).
+
+
+### Added
+
 - **Demo adapter and `ach demo`** — a scripted coding agent (todos, tool
   calls, diffs, approval flow) for trying the harness without API keys.
 - **`ach run --adapter NAME`** — pick the coding agent adapter for headless

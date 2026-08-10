@@ -41,6 +41,7 @@ module Ask
         @adapter = nil
         @mutex = Mutex.new
         @adapter_mutex = Mutex.new
+        @turn_mutex = Mutex.new
         @sessions = {}
         @turns = {}
       end
@@ -127,7 +128,8 @@ module Ask
       private
 
       def run_turn(conversation, prompt, model: nil, &on_event)
-        sid = session_for(conversation, model: model)
+        workspace = conversation["directory"] || @config.workspace
+        sid = session_for(conversation, workspace, model: model)
 
         conv = @store.load(conversation["id"]) || conversation
         conv["messages"] << { "role" => "user", "content" => prompt, "created_at" => Time.now.iso8601 }
@@ -135,22 +137,35 @@ module Ask
 
         outcome = :completed
         accumulated = +""
-        adapter.send_and_stream(sid, prompt, turn_timeout: @config.turn_timeout) do |event|
-          translated = @translator.translate(event)
-          next unless translated
+        with_workspace(workspace) do
+          adapter.send_and_stream(sid, prompt, turn_timeout: @config.turn_timeout) do |event|
+            translated = @translator.translate(event)
+            next unless translated
 
-          case translated[:type]
-          when "message.delta"
-            accumulated << translated[:data][:delta].to_s
-          when "turn.failed"
-            outcome = :failed
-          when "turn.aborted"
-            outcome = :aborted
+            case translated[:type]
+            when "message.delta"
+              accumulated << translated[:data][:delta].to_s
+            when "turn.failed"
+              outcome = :failed
+            when "turn.aborted"
+              outcome = :aborted
+            end
+            emit(on_event, translated)
           end
-          emit(on_event, translated)
         end
 
         persist_outcome(conversation["id"], accumulated, outcome)
+      end
+
+      # Run the block with the workspace as the process working directory.
+      # The shell tools default to Dir.pwd, so the turn must execute inside
+      # its workspace; a turn mutex keeps concurrent workspaces from racing
+      # on the process-global directory. Self-hosted single-user: turns
+      # serialize, which is both safe and simple.
+      def with_workspace(workspace)
+        @turn_mutex.synchronize do
+          Dir.chdir(workspace) { yield }
+        end
       end
 
       # Persist the assistant turn outcome (response, error, or abort) so
@@ -175,14 +190,29 @@ module Ask
         nil
       end
 
-      # One adapter session per conversation, created on first use.
-      def session_for(conversation, model: nil)
+      # One adapter session per conversation, created on first use. Each
+      # session gets its workspace's system prompt (pi-style: default or
+      # custom base + guidelines + AGENTS.md/CLAUDE.md project context).
+      def session_for(conversation, workspace = nil, model: nil)
+        workspace ||= conversation["directory"] || @config.workspace
         @mutex.synchronize do
           @sessions[conversation["id"]] ||= adapter.create_session(
-            conversation["directory"] || @config.workspace,
-            model: model || @config.model
+            workspace,
+            model: model || @config.model,
+            system_prompt: system_prompt_for(workspace)
           )
         end
+      end
+
+      # The system prompt for a workspace. Adapters that don't accept a
+      # per-session prompt (external ACP agents) ignore the extra keyword.
+      def system_prompt_for(workspace)
+        Ask::CodingHarness::SystemPrompt.build(
+          workspace: workspace,
+          custom: @config.system_prompt,
+          append: @config.system_prompt_append,
+          guidelines: @config.system_prompt_guidelines
+        )
       end
 
       # Dispatch a control to the adapter, returning nil when the adapter
@@ -217,8 +247,7 @@ module Ask
           approval: @config.approval,
           approval_required: @config.approval_policy_tools,
           plan_mode: @config.plan_mode,
-          todos: @config.todos,
-          system_prompt: default_system_prompt
+          todos: @config.todos
         )
         adapter.start
         # Tools operate relative to the process working directory; the
@@ -247,14 +276,6 @@ module Ask
         end
       end
 
-      def default_system_prompt
-        base = "You are the coding agent for the workspace \"#{File.basename(@config.workspace)}\" " \
-               "at #{@config.workspace}. You can read, write, and edit files, search the codebase, " \
-               "and run shell commands to inspect and modify the project. Work autonomously: " \
-               "investigate, make changes, and verify your work."
-        extra = ENV["ACH_SYSTEM_PROMPT"]
-        extra ? "#{base}\n\n#{extra}" : base
-      end
     end
   end
 end

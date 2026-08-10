@@ -39,7 +39,7 @@ module Ask
         @mutex.synchronize { @aborted = true; @cv.broadcast }
       end
 
-      def create_session(workspace_path, mode: nil, model: nil)
+      def create_session(workspace_path, mode: nil, model: nil, system_prompt: nil, **)
         sid = "demo_#{@sessions.size + 1}"
         @sessions[sid] = workspace_path
         sid

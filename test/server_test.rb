@@ -209,6 +209,71 @@ class ServerTest < Minitest::Test
     assert_equal true, JSON.parse(last_response.body)["aborted"]
   end
 
+  # ── Workspaces ──
+
+  def test_workspaces_empty_by_default
+    get "/api/workspaces"
+    assert_equal 200, last_response.status
+    assert_equal [], JSON.parse(last_response.body)
+  end
+
+  def test_open_workspace_registers_and_returns_info
+    ws = Dir.mktmpdir("ach-server-ws")
+    post "/api/workspaces", { path: ws }.to_json, { "CONTENT_TYPE" => "application/json" }
+    assert_equal 200, last_response.status
+    body = JSON.parse(last_response.body)
+    assert_equal File.basename(ws), body["name"]
+    assert_equal ws, body["root"]
+    assert_equal 0, body["conversation_count"]
+
+    get "/api/workspaces"
+    assert_includes JSON.parse(last_response.body).map { |w| w["root"] }, ws
+  end
+
+  def test_open_workspace_requires_path
+    post "/api/workspaces", {}.to_json, { "CONTENT_TYPE" => "application/json" }
+    assert_equal 400, last_response.status
+  end
+
+  def test_open_workspace_rejects_missing_directory
+    post "/api/workspaces", { path: "/nonexistent/dir" }.to_json, { "CONTENT_TYPE" => "application/json" }
+    assert_equal 404, last_response.status
+  end
+
+  def test_workspace_info_endpoint
+    ws = Dir.mktmpdir("ach-server-ws-info")
+    encoded = URI.encode_www_form_component(ws)
+    get "/api/workspaces/#{encoded}/info"
+    assert_equal 200, last_response.status
+    assert_equal File.basename(ws), JSON.parse(last_response.body)["name"]
+  end
+
+  def test_workspace_info_rejects_missing_directory
+    encoded = URI.encode_www_form_component("/nonexistent/dir")
+    get "/api/workspaces/#{encoded}/info"
+    assert_equal 404, last_response.status
+  end
+
+  def test_chat_accepts_workspace_param
+    ws = Dir.mktmpdir("ach-server-chat-ws")
+    @runner.stubs(:start_turn).returns(Thread.new {})
+
+    post "/api/chat", { message: "hi", workspace: ws }.to_json, { "CONTENT_TYPE" => "application/json" }
+    assert_equal 200, last_response.status
+
+    cid = last_response.body[/event: conversation.created\ndata: ([^\n]+)/, 1]
+    conv = @store.load(cid)
+    assert_equal ws, conv["directory"]
+
+    # The workspace was registered too.
+    assert_includes @store.workspaces, ws
+  end
+
+  def test_chat_rejects_missing_workspace
+    post "/api/chat", { message: "hi", workspace: "/nonexistent/dir" }.to_json, { "CONTENT_TYPE" => "application/json" }
+    assert_equal 404, last_response.status
+  end
+
   # ── Static / SPA / CORS ──
 
   def test_frontend_serves_index

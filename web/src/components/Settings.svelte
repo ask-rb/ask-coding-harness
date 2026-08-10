@@ -1,4 +1,5 @@
 <script lang="ts">
+  import "ask-ui-kit";
   import type { ConfigResponse } from "../lib/types";
 
   let { config, onClose } = $props<{ config: ConfigResponse | null; onClose: () => void }>();
@@ -12,12 +13,7 @@
   }
 </script>
 
-<div class="overlay" onclick={onClose}>
-  <div class="panel" onclick={(e) => e.stopPropagation()}>
-    <div class="head">
-      <h2>Settings</h2>
-      <button class="close" onclick={onClose}>✕</button>
-    </div>
+<ask-dialog open header="Settings" ondialog-close={onClose}>
 
     {#if config}
       <section>
@@ -62,51 +58,9 @@
     {:else}
       <p class="hint">No server config available.</p>
     {/if}
-  </div>
-</div>
+</ask-dialog>
 
 <style>
-  .overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    z-index: 50;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    padding: 10vh 1rem 1rem;
-  }
-  .panel {
-    width: min(30rem, 100%);
-    max-height: 80vh;
-    overflow-y: auto;
-    background: #131316;
-    border: 1px solid #2a2a2e;
-    border-radius: 1rem;
-    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
-  }
-  .head {
-    display: flex;
-    align-items: center;
-    padding: 1rem 1.25rem 0.5rem;
-  }
-  .head h2 {
-    margin: 0;
-    font-size: 1.0625rem;
-  }
-  .close {
-    margin-left: auto;
-    width: 2rem;
-    height: 2rem;
-    border: none;
-    border-radius: 0.5rem;
-    background: transparent;
-    color: #a3a3a3;
-    cursor: pointer;
-    font-size: 0.875rem;
-  }
-  .close:hover { background: #1f1f22; }
-
   section {
     padding: 0.75rem 1.25rem 1rem;
     border-top: 1px solid #1f1f22;

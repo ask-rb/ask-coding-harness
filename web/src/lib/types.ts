@@ -47,6 +47,7 @@ export interface WorkspaceInfo {
   name: string;
   root: string;
   gitBranch: string | null;
+  conversation_count?: number;
 }
 
 export interface ConfigResponse {
