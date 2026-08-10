@@ -64,7 +64,7 @@ ach version
 | `ACH_PLAN_MODE` | off | plan mode (research first, then execute) |
 | `ACH_TODOS` | on | todo list tool |
 | `ACH_DB_PATH` | `./data/ask-coding-harness.db` | conversation database |
-| `ACH_SYSTEM_PROMPT` | — | extra system prompt lines |
+| `ACH_SYSTEM_PROMPT` | — | extra system prompt lines (append section) |
 
 Programmatic use:
 
