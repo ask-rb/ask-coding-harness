@@ -39,6 +39,32 @@ ach demo
   (the agent itself needs the server).
 - **Extensible** — other coding agents (Codex, Claude Code, ACP-based)
   plug in via `ask-coding-providers` by setting `ACH_ADAPTER=acp`.
+- **Pi-style system prompts** — a composable prompt per workspace: default
+  or custom base, guidelines, `<project_context>` from AGENTS.md/CLAUDE.md
+  (walked to the root, like pi), an append section, and a
+  `Current working directory:` footer.
+- **Declarative agents (ask-agent convention)** — drop an
+  `agents/<name>/` directory (agent.rb + instructions.md) into any
+  workspace; pick the agent from the composer and its instructions become
+  the system prompt, with its tools, skills, and model applied.
+
+## Declarative agents
+
+The harness speaks the ask-agent `agents/` convention, per workspace:
+
+```
+my-project/
+├── agents/
+│   ├── refactorer/
+│   │   ├── agent.rb          # Ask::Agent::Definition subclass
+│   │   └── instructions.md   # becomes the system prompt base
+│   └── shared/
+│       └── tools/            # tools shared by all agents
+```
+
+Select an agent from the composer picker (or send `agent:` with the chat
+request); conversations remember it, and the session is built via
+`Ask::Agent.new` so the definition's tools, skills, and model apply.
 
 ## The `ach` CLI
 
