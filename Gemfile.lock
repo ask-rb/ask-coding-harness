@@ -8,7 +8,7 @@ PATH
       ask-core (>= 0.1)
       ask-llm-providers (>= 0.1)
       ask-state-providers (>= 0.1)
-      ask-tools (>= 0.1)
+      ask-tools (>= 0.6.1)
       ask-tools-shell (>= 0.1)
       puma (~> 6.5)
       rack (~> 3.1)
@@ -55,14 +55,14 @@ GEM
       faraday-multipart (>= 1.0)
       json
     ask-sandbox-providers (0.1.4)
-    ask-schema (0.1.1)
+    ask-schema (0.1.2)
     ask-skills (0.5.1)
       ask-tools (>= 0.1)
     ask-state-providers (0.4.0)
       ask-core (>= 0.1)
-    ask-tools (0.6.0)
+    ask-tools (0.6.1)
       ask-core (>= 0.9.0)
-      ask-schema (>= 0.1)
+      ask-schema (>= 0.1.2)
     ask-tools-shell (0.5.1)
       ask-sandbox-providers (>= 0.1)
       ask-tools (>= 0.1)
@@ -165,10 +165,10 @@ CHECKSUMS
   ask-instrumentation (0.2.1) sha256=0a8d2e2d6653d1b6f551eda0fbabd068c0a9076939f36fa605cd0a13112cdba1
   ask-llm-providers (0.12.0) sha256=44967e93a8947b628ae66c5731214cafe8ff3775b5eede4f1545729e62fcf3a9
   ask-sandbox-providers (0.1.4) sha256=1d48aeeda0a96558b5b8efd7a7e7035c3437c5dace9f849b33b71d3452124ef8
-  ask-schema (0.1.1) sha256=1be1c107c2f7cdacde9cf8d4dfc004e586f652c2b979e1829fab748f66ca98bd
+  ask-schema (0.1.2) sha256=bbaacafcd41633b7982bdf7c5d4a4492c0e0779194b9d01bfa9788a37200b8d5
   ask-skills (0.5.1) sha256=baaaf6a355ce24ec43c272580bb7ef666d980c06def8d1ac04650e1f10f69c71
   ask-state-providers (0.4.0) sha256=7ac87c34862017398d2187d02b0d9b096f6f116f7fc861467e6922b07107695b
-  ask-tools (0.6.0) sha256=26a4c25a2367f49d7541b29ffc65d4efaaacec0133ea502c5aa3092f86d0966e
+  ask-tools (0.6.1) sha256=57339911fa856307d21703a60f3426e80acfb6b23460a46198998a8796bfe0fc
   ask-tools-shell (0.5.1) sha256=bffc8bad1c4b2cb1abb9976e3c451e51f87bdd3c71e79a69ff3ae5fe95e90635
   base64 (0.3.0) sha256=27337aeabad6ffae05c265c450490628ef3ebd4b67be58257393227588f5a97b
   bigdecimal (4.1.2) sha256=53d217666027eab4280346fba98e7d5b66baaae1b9c3c1c0ffe89d48188a3fbd
