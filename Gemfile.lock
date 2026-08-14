@@ -1,13 +1,13 @@
 PATH
   remote: .
   specs:
-    ask-coding-harness (0.2.5)
+    ask-coding-harness (0.2.6)
       ask-acp (>= 0.1)
       ask-agent (>= 0.40.1)
       ask-coding-providers (>= 0.1)
       ask-core (>= 0.11.3)
       ask-llm-providers (>= 0.1)
-      ask-state-providers (>= 0.4.2)
+      ask-state-providers (>= 0.4.4)
       ask-tools (>= 0.6.2)
       ask-tools-shell (>= 0.1)
       puma (~> 6.5)
@@ -59,8 +59,10 @@ GEM
     ask-schema (0.1.2)
     ask-skills (0.5.2)
       ask-tools (>= 0.6.1)
-    ask-state-providers (0.4.2)
-      ask-core (>= 0.1)
+    ask-state-providers (0.4.4)
+      ask-core (>= 0.11.3)
+      connection_pool (>= 2.2)
+      pg (>= 1.5)
     ask-tools (0.6.2)
       ask-core (>= 0.9.0)
       ask-schema (>= 0.1.2)
@@ -98,6 +100,13 @@ GEM
       uri (>= 0.11.1)
     nio4r (2.7.5)
     ostruct (0.6.3)
+    pg (1.6.3)
+    pg (1.6.3-aarch64-linux)
+    pg (1.6.3-aarch64-linux-musl)
+    pg (1.6.3-arm64-darwin)
+    pg (1.6.3-x86_64-darwin)
+    pg (1.6.3-x86_64-linux)
+    pg (1.6.3-x86_64-linux-musl)
     puma (6.6.1)
       nio4r (~> 2.0)
     raabro (1.5.0)
@@ -160,7 +169,7 @@ CHECKSUMS
   ask-acp (0.1.2) sha256=dbc69c6493676b56c5abc78bf664e91b55691120eb1aa5a46acf91eaada7e2a3
   ask-agent (0.40.1) sha256=3cb1303a4c26e31f1b2f4378de43a1c0b824e1d29872699a8b40ba55bc958668
   ask-auth (0.3.2) sha256=1be74a6158284359927d707c9704f1b3c0502742f652368a571f6560149a224a
-  ask-coding-harness (0.2.5)
+  ask-coding-harness (0.2.6)
   ask-coding-providers (0.3.2) sha256=c5bb558e459cf5835af3637248f290e9a09a4a84f0602437c96636fb5d4c654f
   ask-core (0.11.3) sha256=f4eb30a82bda2688f74fff072669cfbb21d4b70242cf5ca80470836e31258b60
   ask-instrumentation (0.2.1) sha256=0a8d2e2d6653d1b6f551eda0fbabd068c0a9076939f36fa605cd0a13112cdba1
@@ -168,7 +177,7 @@ CHECKSUMS
   ask-sandbox-providers (0.1.4) sha256=1d48aeeda0a96558b5b8efd7a7e7035c3437c5dace9f849b33b71d3452124ef8
   ask-schema (0.1.2) sha256=bbaacafcd41633b7982bdf7c5d4a4492c0e0779194b9d01bfa9788a37200b8d5
   ask-skills (0.5.2) sha256=18dd70d0ae0f88fab4f7ad77b074b3c1361601ff2b86fcdfb3a8540beb2eb2ab
-  ask-state-providers (0.4.2) sha256=cabe773abc11939d3b882a2fe8b258a4b53fb20fc6d1881530f4c39d3733c8f2
+  ask-state-providers (0.4.4) sha256=28ef4bc76d3d7f6c15ec87ba2f8f356dc6d07a9620100d30d3e6b29cc1751b37
   ask-tools (0.6.2) sha256=72a387acff26c7a3734367151ad7cd845fe17c7750afecbdb1674d9baf54ae0c
   ask-tools-shell (0.5.1) sha256=bffc8bad1c4b2cb1abb9976e3c451e51f87bdd3c71e79a69ff3ae5fe95e90635
   base64 (0.3.0) sha256=27337aeabad6ffae05c265c450490628ef3ebd4b67be58257393227588f5a97b
@@ -192,6 +201,13 @@ CHECKSUMS
   net-http (0.9.1) sha256=25ba0b67c63e89df626ed8fac771d0ad24ad151a858af2cc8e6a716ca4336996
   nio4r (2.7.5) sha256=6c90168e48fb5f8e768419c93abb94ba2b892a1d0602cb06eef16d8b7df1dca1
   ostruct (0.6.3) sha256=95a2ed4a4bd1d190784e666b47b2d3f078e4a9efda2fccf18f84ddc6538ed912
+  pg (1.6.3) sha256=1388d0563e13d2758c1089e35e973a3249e955c659592d10e5b77c468f628a99
+  pg (1.6.3-aarch64-linux) sha256=0698ad563e02383c27510b76bf7d4cd2de19cd1d16a5013f375dd473e4be72ea
+  pg (1.6.3-aarch64-linux-musl) sha256=06a75f4ea04b05140146f2a10550b8e0d9f006a79cdaf8b5b130cde40e3ecc2c
+  pg (1.6.3-arm64-darwin) sha256=7240330b572e6355d7c75a7de535edb5dfcbd6295d9c7777df4d9dddfb8c0e5f
+  pg (1.6.3-x86_64-darwin) sha256=ee2e04a17c0627225054ffeb43e31a95be9d7e93abda2737ea3ce4a62f2729d6
+  pg (1.6.3-x86_64-linux) sha256=5d9e188c8f7a0295d162b7b88a768d8452a899977d44f3274d1946d67920ae8d
+  pg (1.6.3-x86_64-linux-musl) sha256=9c9c90d98c72f78eb04c0f55e9618fe55d1512128e411035fe229ff427864009
   puma (6.6.1) sha256=b9b56e4a4ea75d1bfa6d9e1972ee2c9f43d0883f011826d914e8e37b3694ea1e
   raabro (1.5.0) sha256=3f998a7bc84f9c84df3ab580634d2e0a5bda4f0841168d56035f529c9877440a
   rack (3.2.6) sha256=5ed78e1f73b2e25679bec7d45ee2d4483cc4146eb1be0264fc4d94cb5ef212c2
