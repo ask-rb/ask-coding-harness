@@ -34,7 +34,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "ask-coding-providers", ">= 0.1"
   spec.add_dependency "ask-core", ">= 0.11.3"
   spec.add_dependency "ask-llm-providers", ">= 0.1"
-  spec.add_dependency "ask-state-providers", ">= 0.4.5"
+  spec.add_dependency "ask-state-providers", ">= 0.4.6"
   spec.add_dependency "ask-tools", ">= 0.6.2"
   spec.add_dependency "ask-tools-shell", ">= 0.1"
   spec.add_dependency "puma", "~> 6.5"
