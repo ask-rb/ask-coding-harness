@@ -30,7 +30,7 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.add_dependency "ask-acp", ">= 0.1"
-  spec.add_dependency "ask-agent", ">= 0.1"
+  spec.add_dependency "ask-agent", ">= 0.40.1"
   spec.add_dependency "ask-coding-providers", ">= 0.1"
   spec.add_dependency "ask-core", ">= 0.1"
   spec.add_dependency "ask-llm-providers", ">= 0.1"
