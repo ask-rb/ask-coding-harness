@@ -29,7 +29,7 @@ Gem::Specification.new do |spec|
   spec.executables = ["ask-coding-harness", "ach"]
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "ask-acp", ">= 0.1"
+  spec.add_dependency "ask-acp", ">= 0.1.3"
   spec.add_dependency "ask-agent", ">= 0.40.1"
   spec.add_dependency "ask-coding-providers", ">= 0.3.3"
   spec.add_dependency "ask-core", ">= 0.11.3"

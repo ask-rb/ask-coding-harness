@@ -1,6 +1,7 @@
 # Bundler
 /.bundle/
 /vendor/bundle/
+*.gem
 
 # Runtime data
 /data/
