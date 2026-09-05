@@ -9,7 +9,9 @@ Gem::Specification.new do |spec|
   spec.email = ["kaka@myrrlabs.com"]
 
   spec.summary = "General-purpose coding agent in the browser"
-  spec.description = "A self-hosted web coding agent for the ask-rb ecosystem. " \
+  spec.description = "DEPRECATED — maintenance mode only, superseded by the canonical " \
+                     "ask-app-server + ask-session-protocol architecture and an internal successor. " \
+                     "A self-hosted web coding agent for the ask-rb ecosystem. " \
                      "Runs Ask::Agent::Session against any workspace with a mobile-first PWA, " \
                      "streaming events over SSE, with approvals, plan mode, todos, and diffs. " \
                      "Comes with the `ach` utility CLI for headless runs and server management. " \

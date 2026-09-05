@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.14] - 2026-09-05
+
+### Deprecated
+
+- **ask-coding-harness is deprecated — maintenance mode only.** No further
+  development is planned; bug fixes only. The browser-client role is now
+  served by the canonical ask-rb architecture (ask-app-server as the
+  session host, thin clients speaking ask-session-protocol) and by an
+  internal successor. README and gemspec carry the notice.
+
 ## [0.2.1] - 2026-08-10
 
 ### Added
