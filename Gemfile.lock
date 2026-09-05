@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    ask-coding-harness (0.2.12)
+    ask-coding-harness (0.2.14)
       ask-acp (>= 0.1.3)
       ask-agent (>= 0.40.1)
       ask-coding-providers (>= 0.3.3)
@@ -169,7 +169,7 @@ CHECKSUMS
   ask-acp (0.1.3) sha256=1f133efaf5319382e23a31100dc8f13c0e5ad56b2e77b8086faf575c000207ea
   ask-agent (0.40.1) sha256=3cb1303a4c26e31f1b2f4378de43a1c0b824e1d29872699a8b40ba55bc958668
   ask-auth (0.3.4) sha256=c2cb3d70b97499280280a42269ed40d4e4aa652c7bba4417bf6960df57a340ca
-  ask-coding-harness (0.2.12)
+  ask-coding-harness (0.2.14)
   ask-coding-providers (0.3.3) sha256=8b5e4cea2960a1e52a033cafacdc944877885de803497ca18d269a5bd9a3635d
   ask-core (0.11.3) sha256=f4eb30a82bda2688f74fff072669cfbb21d4b70242cf5ca80470836e31258b60
   ask-instrumentation (0.2.1) sha256=0a8d2e2d6653d1b6f551eda0fbabd068c0a9076939f36fa605cd0a13112cdba1
