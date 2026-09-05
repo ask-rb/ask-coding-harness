@@ -33,7 +33,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "ask-agent", ">= 0.40.1"
   spec.add_dependency "ask-coding-providers", ">= 0.3.3"
   spec.add_dependency "ask-core", ">= 0.11.3"
-  spec.add_dependency "ask-llm-providers", ">= 0.13.0"
+  spec.add_dependency "ask-llm-providers", ">= 0.13.1"
   spec.add_dependency "ask-state-providers", ">= 0.4.6"
   spec.add_dependency "ask-tools", ">= 0.6.2"
   spec.add_dependency "ask-tools-shell", ">= 0.6.1"
